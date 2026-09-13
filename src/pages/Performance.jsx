@@ -151,7 +151,7 @@ const Performance = () => {
             {/* Table */}
             <div className="overflow-x-auto">
 
-              <table className="w-full min-w-[700px] text-left">
+              <table className="w-full min-w-175 text-left">
 
                 <thead>
                   <tr className="border-b border-slate-800 text-sm text-slate-400">
