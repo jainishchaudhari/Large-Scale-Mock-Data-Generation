@@ -1,17 +1,26 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import Home from "./pages/Home";
+import Generate from "./pages/Generate";
+import Results from "./pages/Results";
+import Performance from "./pages/Performance";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>bhautik</div>
-    </>
-  )
+    <BrowserRouter>
+      <Routes>
+
+        <Route path="/" element={<Home />} />
+
+        <Route path="/generate" element={<Generate />} />
+
+        <Route path="/results" element={<Results />} />
+
+        <Route path="/performance" element={<Performance />} />
+
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
