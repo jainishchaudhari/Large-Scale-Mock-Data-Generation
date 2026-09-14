@@ -1,7 +1,11 @@
 import { generateBatch } from "./batchGenerator.js";
 import { generateStreaming } from "./streamingGenerator.js";
+import { generateSync } from "./syncGenerator.js";
+import { generateAsync } from "./asyncGenerator.js";
 
 const datasetSizes = [1000, 5000, 10000];
+
+const NUMBER_OF_RUNS = 5;
 
 const defaultSchema = {
   name: "name",
@@ -14,16 +18,19 @@ const defaultSchema = {
 const runStreamingBenchmark = (schema, records) => {
   return new Promise((resolve, reject) => {
     try {
-      const stream = generateStreaming(schema, records, (result) => {
-        resolve({
-          time: Number(result.generationTime),
-          memory: Number(result.memoryUsed),
-        });
-      });
+      const stream = generateStreaming(
+        schema,
+        records,
+        (result) => {
+          resolve({
+            time: Number(result.generationTime),
+            memory: Number(result.memoryUsed),
+          });
+        }
+      );
 
       stream.on("error", reject);
 
-      // Consume the stream completely
       stream.resume();
     } catch (error) {
       reject(error);
@@ -31,41 +38,188 @@ const runStreamingBenchmark = (schema, records) => {
   });
 };
 
-export const runBenchmark = async (schema = defaultSchema) => {
+const calculateAverage = (values) => {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const total = values.reduce(
+    (sum, value) => sum + Number(value),
+    0
+  );
+
+  return total / values.length;
+};
+
+const createMetrics = (
+  timeValues,
+  memoryValues,
+  records
+) => {
+  const averageTime = calculateAverage(
+    timeValues
+  );
+
+  const averageMemory = calculateAverage(
+    memoryValues
+  );
+
+  const averageThroughput =
+    records / (averageTime / 1000);
+
+  return {
+    generationTime: averageTime.toFixed(2),
+    memoryUsed: averageMemory.toFixed(2),
+    throughput: averageThroughput.toFixed(2),
+  };
+};
+
+export const runBenchmark = async (
+  schema = defaultSchema
+) => {
   const results = [];
 
   for (const records of datasetSizes) {
-    console.log(`\nBenchmarking ${records} records...`);
+    console.log(
+      `\n================================`
+    );
 
-    // -------------------------
-    // Batch
-    // -------------------------
-    const batchResult = generateBatch(schema, records);
+    console.log(
+      `Benchmarking ${records} records`
+    );
 
-    // -------------------------
-    // Streaming
-    // -------------------------
-    const streamingResult = await runStreamingBenchmark(schema, records);
+    console.log(
+      `Runs: ${NUMBER_OF_RUNS}`
+    );
+
+    console.log(
+      `================================`
+    );
+
+    const batchTimes = [];
+    const batchMemory = [];
+
+    const streamingTimes = [];
+    const streamingMemory = [];
+
+    const syncTimes = [];
+    const syncMemory = [];
+
+    const asyncTimes = [];
+    const asyncMemory = [];
+
+    for (
+      let run = 1;
+      run <= NUMBER_OF_RUNS;
+      run++
+    ) {
+      console.log(
+        `\nRun ${run}/${NUMBER_OF_RUNS}`
+      );
+
+      // =========================
+      // Batch
+      // =========================
+
+      const batchResult = generateBatch(
+        schema,
+        records
+      );
+
+      batchTimes.push(
+        Number(batchResult.generationTime)
+      );
+
+      batchMemory.push(
+        Number(batchResult.memoryUsed)
+      );
+
+      // =========================
+      // Streaming
+      // =========================
+
+      const streamingResult =
+        await runStreamingBenchmark(
+          schema,
+          records
+        );
+
+      streamingTimes.push(
+        streamingResult.time
+      );
+
+      streamingMemory.push(
+        streamingResult.memory
+      );
+
+      // =========================
+      // Sync
+      // =========================
+
+      const syncResult = generateSync(
+        schema,
+        records
+      );
+
+      syncTimes.push(
+        Number(syncResult.generationTime)
+      );
+
+      syncMemory.push(
+        Number(syncResult.memoryUsed)
+      );
+
+      // =========================
+      // Async
+      // =========================
+
+      const asyncResult =
+        await generateAsync(
+          schema,
+          records
+        );
+
+      asyncTimes.push(
+        Number(asyncResult.generationTime)
+      );
+
+      asyncMemory.push(
+        Number(asyncResult.memoryUsed)
+      );
+    }
+
+    // =========================
+    // Average Results
+    // =========================
 
     results.push({
       records,
 
-      batch: {
-        generationTime: batchResult.generationTime,
-        memoryUsed: batchResult.memoryUsed,
-        throughput: (
-          records /
-          (Number(batchResult.generationTime) / 1000)
-        ).toFixed(2),
-      },
+      runs: NUMBER_OF_RUNS,
 
-      streaming: {
-        generationTime: streamingResult.time.toFixed(2),
+      batch: createMetrics(
+        batchTimes,
+        batchMemory,
+        records
+      ),
 
-        memoryUsed: streamingResult.memory.toFixed(2),
+      streaming: createMetrics(
+        streamingTimes,
+        streamingMemory,
+        records
+      ),
 
-        throughput: (records / (streamingResult.time / 1000)).toFixed(2),
-      },
+      sync: createMetrics(
+        syncTimes,
+        syncMemory,
+        records
+      ),
+
+      async: createMetrics(
+        asyncTimes,
+        asyncMemory,
+        records
+      ),
     });
   }
 

@@ -1,9 +1,14 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
 
-import generatorRoutes from "./routes/generatorRoutes.js";
+import connectDB from "./config/db.js";
+
+dotenv.config();
 
 const app = express();
+
+connectDB();
 
 app.use(cors());
 app.use(express.json());
@@ -14,6 +19,8 @@ app.get("/api/health", (req, res) => {
     message: "Mock Data Generator API is running",
   });
 });
+
+import generatorRoutes from "./routes/generatorRoutes.js";
 
 app.use("/api", generatorRoutes);
 
