@@ -16,12 +16,14 @@ const Generate = () => {
   "city": "city"
 }`);
 
-  const handleGenerate = () => {
-    const startTime = performance.now();
+  const [loading, setLoading] = useState(false);
 
+  const handleGenerate = async () => {
     let parsedSchema;
 
-    // Validate JSON schema
+    // =========================
+    // VALIDATE JSON SCHEMA
+    // =========================
     try {
       parsedSchema = JSON.parse(schema);
     } catch (error) {
@@ -29,57 +31,130 @@ const Generate = () => {
       return;
     }
 
-    // Validate number of records
+    // =========================
+    // VALIDATE RECORDS
+    // =========================
     const totalRecords = Number(records);
 
-    if (!totalRecords || totalRecords < 1) {
+    if (!Number.isInteger(totalRecords) || totalRecords < 1) {
       alert("Please enter a valid number of records.");
       return;
     }
 
-    // Dummy generated data
-    const generatedData = [];
-
-    // Only generate 10 records for frontend preview
-    for (let i = 0; i < Math.min(totalRecords, 10); i++) {
-      generatedData.push({
-        id: i + 1,
-        name: `User ${i + 1}`,
-        email: `user${i + 1}@example.com`,
-        age: 20 + i,
-        city: "Ahmedabad",
-      });
+    // =========================
+    // RECORD LIMIT
+    // =========================
+    if (totalRecords > 10000) {
+      alert("Maximum 10,000 records allowed for testing.");
+      return;
     }
 
-    const endTime = performance.now();
+    setLoading(true);
 
-    const generationTime = (endTime - startTime).toFixed(2);
+    try {
+      // =========================
+      // CALL BACKEND
+      // =========================
+      const response = await fetch(
+        "http://localhost:5000/api/generate",
+        {
+          method: "POST",
 
-    // Navigate to Results page
-    navigate("/results", {
-      state: {
-        schema: parsedSchema,
-        records: totalRecords,
-        format: format,
-        method: method,
-        generatedData: generatedData,
-        generationTime: generationTime,
-      },
-    });
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            schema: parsedSchema,
+            records: totalRecords,
+            method: method,
+          }),
+        }
+      );
+
+      // =========================
+      // HANDLE BACKEND ERROR
+      // =========================
+      if (!response.ok) {
+        const errorData = await response.json();
+
+        throw new Error(
+          errorData.message || "Data generation failed"
+        );
+      }
+
+      // =========================
+      // BATCH GENERATION
+      // =========================
+      if (method === "Batch") {
+        const data = await response.json();
+
+        navigate("/results", {
+          state: {
+            schema: parsedSchema,
+            records: totalRecords,
+            format: format,
+            method: method,
+            generatedData: data.data || [],
+            generationTime: data.generationTime || "N/A",
+            memoryUsed: data.memoryUsed || "N/A",
+          },
+        });
+
+        return;
+      }
+
+      // =========================
+      // STREAMING GENERATION
+      // =========================
+      if (method === "Streaming") {
+        const text = await response.text();
+
+        const generatedData = text
+          .trim()
+          .split("\n")
+          .filter((line) => line.trim() !== "")
+          .map((line) => JSON.parse(line));
+
+        navigate("/results", {
+          state: {
+            schema: parsedSchema,
+            records: totalRecords,
+            format: "JSONL",
+            method: method,
+            generatedData: generatedData,
+            generationTime: "Measured on backend",
+            memoryUsed: "Measured on backend",
+          },
+        });
+
+        return;
+      }
+
+    } catch (error) {
+      console.error("Generation Error:", error);
+
+      alert(
+        error.message ||
+        "Unable to connect to backend server."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
 
-      {/* ================= Navbar ================= */}
       <Navbar />
 
-      {/* ================= Main Content ================= */}
       <main className="px-6 py-12">
 
         <div className="mx-auto max-w-7xl">
 
-          {/* ================= Page Header ================= */}
+          {/* =========================
+              PAGE HEADER
+          ========================= */}
           <div className="mb-10">
 
             <p className="text-sm font-semibold uppercase tracking-widest text-purple-400">
@@ -97,17 +172,20 @@ const Generate = () => {
 
           </div>
 
-
-          {/* ================= Main Grid ================= */}
+          {/* =========================
+              MAIN GRID
+          ========================= */}
           <div className="grid gap-8 lg:grid-cols-2">
 
-            {/* ================= Schema Editor ================= */}
+            {/* =========================
+                JSON SCHEMA
+            ========================= */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
 
-              {/* Card Header */}
               <div className="mb-5 flex items-center justify-between">
 
                 <div>
+
                   <h2 className="text-xl font-semibold">
                     JSON Schema
                   </h2>
@@ -115,6 +193,7 @@ const Generate = () => {
                   <p className="mt-1 text-sm text-slate-400">
                     Define the fields for your generated data.
                   </p>
+
                 </div>
 
                 <span className="rounded-md bg-slate-800 px-3 py-1 text-xs text-slate-400">
@@ -123,8 +202,6 @@ const Generate = () => {
 
               </div>
 
-
-              {/* Schema Input */}
               <textarea
                 value={schema}
                 onChange={(e) => setSchema(e.target.value)}
@@ -138,8 +215,9 @@ const Generate = () => {
 
             </div>
 
-
-            {/* ================= Generation Settings ================= */}
+            {/* =========================
+                GENERATION SETTINGS
+            ========================= */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
 
               <h2 className="text-xl font-semibold">
@@ -150,8 +228,9 @@ const Generate = () => {
                 Configure the size, format and generation method.
               </p>
 
-
-              {/* ================= Number of Records ================= */}
+              {/* =========================
+                  NUMBER OF RECORDS
+              ========================= */}
               <div className="mt-8">
 
                 <label className="mb-2 block text-sm font-medium text-slate-300">
@@ -161,19 +240,23 @@ const Generate = () => {
                 <input
                   type="number"
                   min="1"
+                  max="10000"
                   value={records}
-                  onChange={(e) => setRecords(Number(e.target.value))}
+                  onChange={(e) =>
+                    setRecords(Number(e.target.value))
+                  }
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                 />
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Example: 1,000, 10,000 or 100,000 records
+                  Maximum 10,000 records for current testing version.
                 </p>
 
               </div>
 
-
-              {/* ================= Output Format ================= */}
+              {/* =========================
+                  OUTPUT FORMAT
+              ========================= */}
               <div className="mt-7">
 
                 <label className="mb-2 block text-sm font-medium text-slate-300">
@@ -185,14 +268,22 @@ const Generate = () => {
                   onChange={(e) => setFormat(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                 >
-                  <option value="JSON">JSON</option>
-                  <option value="JSONL">JSONL</option>
+
+                  <option value="JSON">
+                    JSON
+                  </option>
+
+                  <option value="JSONL">
+                    JSONL
+                  </option>
+
                 </select>
 
               </div>
 
-
-              {/* ================= Generation Method ================= */}
+              {/* =========================
+                  GENERATION METHOD
+              ========================= */}
               <div className="mt-7">
 
                 <label className="mb-2 block text-sm font-medium text-slate-300">
@@ -204,27 +295,41 @@ const Generate = () => {
                   onChange={(e) => setMethod(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                 >
-                  <option value="Batch">Batch</option>
-                  <option value="Streaming">Streaming</option>
+
+                  <option value="Batch">
+                    Batch
+                  </option>
+
+                  <option value="Streaming">
+                    Streaming
+                  </option>
+
                 </select>
 
               </div>
 
-
-              {/* ================= Generate Button ================= */}
+              {/* =========================
+                  GENERATE BUTTON
+              ========================= */}
               <button
                 onClick={handleGenerate}
-                className="mt-9 w-full rounded-xl bg-purple-600 py-3.5 font-semibold transition hover:bg-purple-700 active:scale-[0.99]"
+                disabled={loading}
+                className="mt-9 w-full rounded-xl bg-purple-600 py-3.5 font-semibold transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Generate Data
+
+                {loading
+                  ? "Generating..."
+                  : "Generate Data"}
+
               </button>
 
             </div>
 
           </div>
 
-
-          {/* ================= Information Box ================= */}
+          {/* =========================
+              INFO BOX
+          ========================= */}
           <div className="mt-8 rounded-xl border border-purple-500/20 bg-purple-500/5 p-5">
 
             <div className="flex gap-3">
@@ -239,8 +344,9 @@ const Generate = () => {
                   Note:
                 </span>{" "}
 
-                The current interface uses dummy generation logic.
-                Faker.js and backend processing will be connected later.
+                Data is generated by the Node.js backend using
+                Faker.js. Batch and Streaming methods can be
+                compared using the Performance page.
 
               </p>
 
