@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
@@ -8,8 +8,39 @@ const Results = () => {
   const navigate = useNavigate();
 
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const result = location.state;
+
+  /* --------------------------------
+     Fetch Generation History
+  -------------------------------- */
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/results"
+        );
+
+        const data = await response.json();
+
+        if (data.success) {
+          setHistory(data.results);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to fetch generation history:",
+          error
+        );
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
 
   /* --------------------------------
      No Data State
@@ -22,7 +53,6 @@ const Results = () => {
 
         <main className="mx-auto max-w-3xl px-6 py-20">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center">
-
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-purple-400">
               <span className="text-2xl">!</span>
             </div>
@@ -41,7 +71,6 @@ const Results = () => {
             >
               Go to Generator
             </button>
-
           </div>
         </main>
       </div>
@@ -75,12 +104,9 @@ const Results = () => {
   -------------------------------- */
 
   const handleDownload = () => {
-    const blob = new Blob(
-      [jsonData],
-      {
-        type: "application/json",
-      }
-    );
+    const blob = new Blob([jsonData], {
+      type: "application/json",
+    });
 
     const url = URL.createObjectURL(blob);
 
@@ -109,9 +135,7 @@ const Results = () => {
         ============================== */}
 
         <div className="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-
           <div>
-
             <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
               GENERATION COMPLETE
             </span>
@@ -121,10 +145,9 @@ const Results = () => {
             </h1>
 
             <p className="mt-3 max-w-2xl text-slate-400">
-              Your mock dataset has been successfully
-              generated and is ready for inspection or export.
+              Your mock dataset has been successfully generated and is ready
+              for inspection or export.
             </p>
-
           </div>
 
           <button
@@ -133,7 +156,6 @@ const Results = () => {
           >
             ← Generate Again
           </button>
-
         </div>
 
         {/* ==============================
@@ -145,7 +167,6 @@ const Results = () => {
           {/* Records */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
             <p className="text-sm text-slate-400">
               Records Generated
             </p>
@@ -157,13 +178,11 @@ const Results = () => {
             <p className="mt-2 text-xs text-slate-500">
               Total mock records
             </p>
-
           </div>
 
           {/* Method */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
             <p className="text-sm text-slate-400">
               Generation Method
             </p>
@@ -175,13 +194,11 @@ const Results = () => {
             <p className="mt-2 text-xs text-slate-500">
               Selected generation strategy
             </p>
-
           </div>
 
           {/* Time */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
             <p className="text-sm text-slate-400">
               Generation Time
             </p>
@@ -193,13 +210,11 @@ const Results = () => {
             <p className="mt-2 text-xs text-slate-500">
               Time required to generate data
             </p>
-
           </div>
 
           {/* Memory */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
             <p className="text-sm text-slate-400">
               Memory Delta
             </p>
@@ -211,7 +226,6 @@ const Results = () => {
             <p className="mt-2 text-xs text-slate-500">
               Observed RSS memory change
             </p>
-
           </div>
 
         </section>
@@ -225,9 +239,7 @@ const Results = () => {
           {/* Section Header */}
 
           <div className="flex flex-col justify-between gap-4 border-b border-slate-800 p-6 sm:flex-row sm:items-center">
-
             <div>
-
               <h2 className="text-xl font-semibold">
                 JSON Data Preview
               </h2>
@@ -235,7 +247,6 @@ const Results = () => {
               <p className="mt-1 text-sm text-slate-500">
                 Preview of the generated mock dataset.
               </p>
-
             </div>
 
             <div className="flex gap-3">
@@ -255,19 +266,14 @@ const Results = () => {
               </button>
 
             </div>
-
           </div>
 
           {/* JSON */}
 
           <div className="max-h-[600px] overflow-auto p-6">
-
             <pre className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-sm leading-6 text-slate-300">
-              <code>
-                {jsonData}
-              </code>
+              <code>{jsonData}</code>
             </pre>
-
           </div>
 
         </section>
@@ -280,7 +286,6 @@ const Results = () => {
           <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
 
             <div className="mb-5">
-
               <h2 className="text-xl font-semibold">
                 Schema Used
               </h2>
@@ -288,17 +293,13 @@ const Results = () => {
               <p className="mt-1 text-sm text-slate-500">
                 Fields and data types used for generation.
               </p>
-
             </div>
 
             <div className="overflow-x-auto">
-
               <table className="w-full text-left text-sm">
 
                 <thead>
-
                   <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-
                     <th className="px-4 py-4">
                       Field
                     </th>
@@ -306,44 +307,138 @@ const Results = () => {
                     <th className="px-4 py-4">
                       Data Type
                     </th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
-
                   {Object.entries(result.schema).map(
                     ([field, type]) => (
                       <tr
                         key={field}
                         className="border-b border-slate-800/70"
                       >
-
                         <td className="px-4 py-4 font-medium text-white">
                           {field}
                         </td>
 
                         <td className="px-4 py-4">
-
                           <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
                             {type}
                           </span>
-
                         </td>
-
                       </tr>
                     )
                   )}
-
                 </tbody>
 
               </table>
-
             </div>
 
           </section>
         )}
+
+        {/* ==============================
+            Generation History
+        ============================== */}
+
+        <section className="mb-8">
+
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold">
+              Generation History
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Previous datasets stored in MongoDB.
+            </p>
+          </div>
+
+          {loadingHistory ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+              <p className="text-sm text-slate-400">
+                Loading generation history...
+              </p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+              <p className="text-sm text-slate-400">
+                No generation history found.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+
+                  <thead className="border-b border-slate-800 bg-slate-950">
+                    <tr>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Records
+                      </th>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Method
+                      </th>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Generation Time
+                      </th>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Memory
+                      </th>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Created
+                      </th>
+
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {history.map((item) => (
+                      <tr
+                        key={item._id}
+                        className="border-b border-slate-800 last:border-b-0"
+                      >
+
+                        <td className="px-6 py-4 text-sm text-white">
+                          {item.records.toLocaleString()}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400">
+                            {item.method}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-300">
+                          {item.generationTime} ms
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-300">
+                          {item.memoryUsed} MB
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-400">
+                          {new Date(
+                            item.createdAt
+                          ).toLocaleString()}
+                        </td>
+
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+              </div>
+
+            </div>
+          )}
+
+        </section>
 
         {/* ==============================
             Research Note
@@ -366,18 +461,16 @@ const Results = () => {
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-400">
-
                 {result.method === "Streaming"
                   ? "The dataset was generated progressively using the streaming approach. Records are produced and transmitted incrementally rather than being returned as one large in-memory array."
                   : "The dataset was generated using the batch approach. Generated records are collected in memory and returned as a complete JSON dataset."}
-
               </p>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Performance measurements are environment-dependent.
-                Memory values represent observed RSS changes during
-                execution and may vary because of Node.js runtime
-                allocation and garbage collection.
+                Performance measurements are environment-dependent. Memory
+                values represent observed RSS changes during execution and may
+                vary because of Node.js runtime allocation and garbage
+                collection.
               </p>
 
             </div>

@@ -1,13 +1,15 @@
 import { generateBatch } from "../services/batchGenerator.js";
 import { generateStreaming } from "../services/streamingGenerator.js";
+import Generation from "../models/Generation.js";
 
-export const generateData = (req, res) => {
+export const generateData = async (req, res) => {
   try {
-    const { schema, records, method = "Batch" } = req.body;
+    const {
+      schema,
+      records,
+      method = "Batch",
+    } = req.body;
 
-    // =========================
-    // VALIDATE SCHEMA
-    // =========================
     if (
       !schema ||
       typeof schema !== "object" ||
@@ -19,9 +21,6 @@ export const generateData = (req, res) => {
       });
     }
 
-    // =========================
-    // VALIDATE RECORDS
-    // =========================
     const totalRecords = Number(records);
 
     if (
@@ -34,27 +33,36 @@ export const generateData = (req, res) => {
       });
     }
 
-    // =========================
-    // TESTING LIMIT
-    // =========================
     if (totalRecords > 10000) {
       return res.status(400).json({
         success: false,
-        message: "Maximum 10,000 records allowed for testing",
+        message:
+          "Maximum 10,000 records allowed for testing",
       });
     }
 
-    // =========================
-    // BATCH GENERATION
-    // =========================
     if (method === "Batch") {
       const result = generateBatch(
         schema,
         totalRecords
       );
 
+      const generation = await Generation.create({
+        schema,
+        records: totalRecords,
+        method: "Batch",
+        generationTime: Number(
+          result.generationTime
+        ),
+        memoryUsed: Number(
+          result.memoryUsed
+        ),
+        data: result.data,
+      });
+
       return res.json({
         success: true,
+        id: generation._id,
         method: "Batch",
         records: totalRecords,
         generationTime: `${result.generationTime} ms`,
@@ -63,9 +71,6 @@ export const generateData = (req, res) => {
       });
     }
 
-    // =========================
-    // STREAMING GENERATION
-    // =========================
     if (method === "Streaming") {
       const stream = generateStreaming(
         schema,
@@ -89,19 +94,16 @@ export const generateData = (req, res) => {
         }
       );
 
-      // JSONL response
       res.setHeader(
         "Content-Type",
         "application/x-ndjson"
       );
 
-      // Enable chunked transfer
       res.setHeader(
         "Transfer-Encoding",
         "chunked"
       );
 
-      // Handle stream error
       stream.on("error", (error) => {
         console.error(
           "Streaming Error:",
@@ -119,20 +121,15 @@ export const generateData = (req, res) => {
         }
       });
 
-      // Send stream to client
       stream.pipe(res);
 
       return;
     }
 
-    // =========================
-    // INVALID METHOD
-    // =========================
     return res.status(400).json({
       success: false,
       message: "Invalid generation method",
     });
-
   } catch (error) {
     console.error(
       "Generation Error:",
