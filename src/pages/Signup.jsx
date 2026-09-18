@@ -1,6 +1,76 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Signup = () => {
+  const navigate = useNavigate();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/auth/signup",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            name,
+            email,
+            password,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.message || "Signup failed");
+        return;
+      }
+
+      setSuccess("Account created successfully");
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 1000);
+
+    } catch (error) {
+      console.error("Signup Error:", error);
+
+      setError("Unable to connect to server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
@@ -9,8 +79,13 @@ const Signup = () => {
 
           {/* Logo */}
           <div className="mb-8 text-center">
-            <Link to="/" className="text-3xl font-bold">
-              Mock<span className="text-purple-500">Gen</span>
+            <Link
+              to="/"
+              className="text-3xl font-bold"
+            >
+              Mock<span className="text-purple-500">
+                Gen
+              </span>
             </Link>
 
             <h1 className="mt-6 text-3xl font-bold">
@@ -25,7 +100,10 @@ const Signup = () => {
           {/* Signup Card */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
 
-            <form className="space-y-5">
+            <form
+              onSubmit={handleSignup}
+              className="space-y-5"
+            >
 
               {/* Name */}
               <div>
@@ -35,7 +113,12 @@ const Signup = () => {
 
                 <input
                   type="text"
+                  value={name}
+                  onChange={(e) =>
+                    setName(e.target.value)
+                  }
                   placeholder="Enter your name"
+                  required
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
                 />
               </div>
@@ -48,7 +131,12 @@ const Signup = () => {
 
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) =>
+                    setEmail(e.target.value)
+                  }
                   placeholder="Enter your email"
+                  required
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
                 />
               </div>
@@ -61,7 +149,12 @@ const Signup = () => {
 
                 <input
                   type="password"
+                  value={password}
+                  onChange={(e) =>
+                    setPassword(e.target.value)
+                  }
                   placeholder="Create a password"
+                  required
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
                 />
               </div>
@@ -74,17 +167,39 @@ const Signup = () => {
 
                 <input
                   type="password"
+                  value={confirmPassword}
+                  onChange={(e) =>
+                    setConfirmPassword(e.target.value)
+                  }
                   placeholder="Confirm your password"
+                  required
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
                 />
               </div>
 
+              {/* Error */}
+              {error && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+
+              {/* Success */}
+              {success && (
+                <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+                  {success}
+                </div>
+              )}
+
               {/* Button */}
               <button
                 type="submit"
-                className="w-full rounded-lg bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700"
+                disabled={loading}
+                className="w-full rounded-lg bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create Account
+                {loading
+                  ? "Creating Account..."
+                  : "Create Account"}
               </button>
 
             </form>
