@@ -41,13 +41,31 @@ const Navbar = () => {
           </Link>
         </div>
 
-        {/* Button */}
-        <Link
-          to="/generate"
-          className="rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
-        >
-          Get Started
-        </Link>
+        {/* Auth Buttons */}
+        <div className="flex items-center gap-3">
+
+          <Link
+            to="/login"
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-300 transition hover:text-white"
+          >
+            Login
+          </Link>
+
+          <Link
+            to="/signup"
+            className="rounded-lg border border-purple-500 px-4 py-2 text-sm font-semibold text-purple-400 transition hover:bg-purple-500 hover:text-white"
+          >
+            Sign Up
+          </Link>
+
+          <Link
+            to="/generate"
+            className="rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
+          >
+            Get Started
+          </Link>
+
+        </div>
 
       </div>
     </nav>
