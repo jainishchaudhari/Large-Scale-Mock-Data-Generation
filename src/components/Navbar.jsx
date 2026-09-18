@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import logo3 from "../assets/logo3.png";
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -14,20 +15,20 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="border-b border-slate-800 bg-slate-950">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+    <nav className="h-16 border-b border-slate-800 bg-slate-950">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
 
         {/* Logo */}
-        <Link
-          to="/"
-          className="text-2xl font-bold text-white"
-        >
-          Mock<span className="text-purple-500">Gen</span>
+        <Link to="/" className="flex h-16 items-center">
+          <img
+            src={logo3}
+            alt="MockGen"
+            className="h-15 w-auto object-contain"
+          />
         </Link>
 
         {/* Navigation */}
         <div className="hidden items-center gap-8 text-sm md:flex">
-
           <Link
             to="/"
             className="text-slate-300 transition hover:text-white"
@@ -59,12 +60,10 @@ const Navbar = () => {
               </Link>
             </>
           )}
-
         </div>
 
         {/* Authentication */}
         <div className="flex items-center gap-3">
-
           {token ? (
             <>
               {/* User Name */}
@@ -80,7 +79,7 @@ const Navbar = () => {
                 Logout
               </button>
 
-              {/* Generate */}
+              {/* Get Started */}
               <Link
                 to="/generate"
                 className="rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
@@ -107,9 +106,7 @@ const Navbar = () => {
               </Link>
             </>
           )}
-
         </div>
-
       </div>
     </nav>
   );
