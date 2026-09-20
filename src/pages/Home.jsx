@@ -1,13 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import heroImage from "../assets/hero.png";
-import Navbar from "../components/Navbar";
 
 const Home = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-
-      {/* Navbar */}
-      <Navbar />
-
 
       {/* Hero Section */}
       <section className="mx-auto flex min-h-[75vh] max-w-7xl items-center px-6 py-16">
@@ -35,18 +33,25 @@ const Home = () => {
 
             <div className="mt-8 flex flex-wrap gap-4">
 
-              <button className="rounded-lg bg-purple-600 px-7 py-3 font-semibold transition hover:bg-purple-700">
+              {/* Start Generating */}
+              <button
+                onClick={() => navigate("/generate")}
+                className="rounded-lg bg-purple-600 px-7 py-3 font-semibold transition hover:bg-purple-700"
+              >
                 Start Generating
               </button>
 
-              <button className="rounded-lg border border-slate-700 px-7 py-3 font-semibold text-slate-300 transition hover:border-slate-500 hover:bg-slate-900">
+              {/* View Performance */}
+              <button
+                onClick={() => navigate("/performance")}
+                className="rounded-lg border border-slate-700 px-7 py-3 font-semibold text-slate-300 transition hover:border-slate-500 hover:bg-slate-900"
+              >
                 View Performance
               </button>
 
             </div>
 
           </div>
-
 
           {/* Right Image */}
           <div className="flex justify-center md:justify-end">
@@ -68,7 +73,6 @@ const Home = () => {
         </div>
 
       </section>
-
 
       {/* Features */}
       <section className="border-t border-slate-800 px-6 py-20">
@@ -92,7 +96,6 @@ const Home = () => {
 
           </div>
 
-
           <div className="mt-12 grid gap-6 md:grid-cols-3">
 
             {/* Feature 1 */}
@@ -113,7 +116,6 @@ const Home = () => {
 
             </div>
 
-
             {/* Feature 2 */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-7 transition hover:border-purple-500/50">
 
@@ -131,7 +133,6 @@ const Home = () => {
               </p>
 
             </div>
-
 
             {/* Feature 3 */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-7 transition hover:border-purple-500/50">

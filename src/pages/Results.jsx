@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import Navbar from "../components/Navbar";
 
 const Results = () => {
   const location = useLocation();
@@ -49,7 +48,6 @@ const Results = () => {
   if (!result || !result.data) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-        <Navbar />
 
         <main className="mx-auto max-w-3xl px-6 py-20">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center">
@@ -126,7 +124,6 @@ const Results = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <Navbar />
 
       <main className="mx-auto max-w-7xl px-6 py-10">
 

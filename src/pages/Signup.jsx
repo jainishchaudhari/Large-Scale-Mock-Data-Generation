@@ -56,11 +56,20 @@ const Signup = () => {
         return;
       }
 
+      // Save login session
+      localStorage.setItem("token", result.token);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(result.user)
+      );
+
       setSuccess("Account created successfully");
 
+      // Directly go to Home
       setTimeout(() => {
-        navigate("/login");
-      }, 1000);
+        navigate("/");
+      }, 500);
 
     } catch (error) {
       console.error("Signup Error:", error);

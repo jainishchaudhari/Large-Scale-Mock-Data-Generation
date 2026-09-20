@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import Navbar from "../components/Navbar";
 
 const Performance = () => {
   const [benchmarkData, setBenchmarkData] = useState([]);
@@ -200,7 +199,6 @@ const Performance = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-        <Navbar />
 
         <div className="flex min-h-[70vh] items-center justify-center">
           <div className="text-center">
@@ -256,7 +254,6 @@ const Performance = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <Navbar />
 
       <main className="mx-auto max-w-7xl px-6 py-10">
 

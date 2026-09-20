@@ -17,7 +17,6 @@ const Navbar = () => {
   return (
     <nav className="h-16 border-b border-slate-800 bg-slate-950">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-
         {/* Logo */}
         <Link to="/" className="flex h-16 items-center">
           <img
@@ -29,11 +28,15 @@ const Navbar = () => {
 
         {/* Navigation */}
         <div className="hidden items-center gap-8 text-sm md:flex">
+          <Link to="/" className="text-slate-300 transition hover:text-white">
+            Home
+          </Link>
+
           <Link
-            to="/"
+            to="/about"
             className="text-slate-300 transition hover:text-white"
           >
-            Home
+            About
           </Link>
 
           {token && (

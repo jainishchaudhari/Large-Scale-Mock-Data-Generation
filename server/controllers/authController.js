@@ -30,9 +30,21 @@ export const signup = async (req, res) => {
       password: hashedPassword,
     });
 
+    // Create JWT token immediately after signup
+    const token = jwt.sign(
+      {
+        userId: user._id,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
     return res.status(201).json({
       success: true,
       message: "Account created successfully",
+      token,
       user: {
         id: user._id,
         name: user.name,

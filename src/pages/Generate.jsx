@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import Navbar from "../components/Navbar";
 
 const Generate = () => {
   const navigate = useNavigate();
@@ -199,7 +198,6 @@ const Generate = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <Navbar />
 
       <main className="mx-auto max-w-6xl px-6 py-10">
         {/* Header */}
