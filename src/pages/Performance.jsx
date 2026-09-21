@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-
 const Performance = () => {
   const [benchmarkData, setBenchmarkData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,12 +22,15 @@ const Performance = () => {
         setLoading(true);
         setError("");
 
+        const token = localStorage.getItem("token");
+
         const response = await fetch(
           "http://localhost:5000/api/benchmark",
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               schema: {
@@ -199,7 +201,6 @@ const Performance = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-
         <div className="flex min-h-[70vh] items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-purple-500" />
@@ -224,8 +225,6 @@ const Performance = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-        <Navbar />
-
         <div className="mx-auto max-w-3xl px-6 py-20">
           <div className="rounded-2xl border border-red-900/50 bg-red-950/20 p-8 text-center">
             <h2 className="text-xl font-semibold">
@@ -254,7 +253,6 @@ const Performance = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-
       <main className="mx-auto max-w-7xl px-6 py-10">
 
         {/* ==============================
@@ -264,7 +262,6 @@ const Performance = () => {
         <div className="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-3">
-
               <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
                 PERFORMANCE ANALYSIS
               </span>
@@ -272,7 +269,6 @@ const Performance = () => {
               <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-medium text-slate-300">
                 5 Runs Average
               </span>
-
             </div>
 
             <h1 className="text-4xl font-bold tracking-tight">
@@ -302,8 +298,6 @@ const Performance = () => {
         ============================== */}
 
         <section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-
-          {/* Dataset-wise fastest cards */}
 
           {benchmarkData.map((item) => {
             const methods = [
@@ -336,7 +330,6 @@ const Performance = () => {
                 className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-purple-500/40"
               >
                 <div className="flex items-center justify-between">
-
                   <p className="text-sm text-slate-400">
                     {item.size.toLocaleString()} Records
                   </p>
@@ -344,7 +337,6 @@ const Performance = () => {
                   <span className="rounded-full bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400">
                     Fastest
                   </span>
-
                 </div>
 
                 <h3 className="mt-4 text-2xl font-bold text-white">
@@ -362,13 +354,9 @@ const Performance = () => {
             );
           })}
 
-          {/* Highest Throughput */}
-
           {largestData && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-purple-500/40">
-
               <div className="flex items-center justify-between">
-
                 <p className="text-sm text-slate-400">
                   Peak Throughput
                 </p>
@@ -376,7 +364,6 @@ const Performance = () => {
                 <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-semibold text-green-400">
                   Highest
                 </span>
-
               </div>
 
               <h3 className="mt-4 text-2xl font-bold text-white">
@@ -429,10 +416,8 @@ const Performance = () => {
                 Best throughput at{" "}
                 {largestDataset.toLocaleString()} records
               </p>
-
             </div>
           )}
-
         </section>
 
         {/* ==============================
@@ -440,7 +425,6 @@ const Performance = () => {
         ============================== */}
 
         <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
           <div className="mb-6">
             <h2 className="text-xl font-semibold">
               Generation Time
@@ -452,13 +436,11 @@ const Performance = () => {
           </div>
 
           <div className="h-[360px] w-full">
-
             <ResponsiveContainer
               width="100%"
               height="100%"
             >
               <LineChart data={chartData}>
-
                 <CartesianGrid
                   stroke="#1e293b"
                   strokeDasharray="3 3"
@@ -533,10 +515,8 @@ const Performance = () => {
                   strokeWidth={3}
                   dot={{ r: 4 }}
                 />
-
               </LineChart>
             </ResponsiveContainer>
-
           </div>
         </section>
 
@@ -545,7 +525,6 @@ const Performance = () => {
         ============================== */}
 
         <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
           <div className="mb-6">
             <h2 className="text-xl font-semibold">
               Observed Memory Delta
@@ -560,13 +539,11 @@ const Performance = () => {
           </div>
 
           <div className="h-[360px] w-full">
-
             <ResponsiveContainer
               width="100%"
               height="100%"
             >
               <LineChart data={chartData}>
-
                 <CartesianGrid
                   stroke="#1e293b"
                   strokeDasharray="3 3"
@@ -641,10 +618,8 @@ const Performance = () => {
                   strokeWidth={3}
                   dot={{ r: 4 }}
                 />
-
               </LineChart>
             </ResponsiveContainer>
-
           </div>
         </section>
 
@@ -653,7 +628,6 @@ const Performance = () => {
         ============================== */}
 
         <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
           <div className="mb-6">
             <h2 className="text-xl font-semibold">
               Throughput
@@ -666,13 +640,11 @@ const Performance = () => {
           </div>
 
           <div className="h-[360px] w-full">
-
             <ResponsiveContainer
               width="100%"
               height="100%"
             >
               <LineChart data={chartData}>
-
                 <CartesianGrid
                   stroke="#1e293b"
                   strokeDasharray="3 3"
@@ -747,10 +719,8 @@ const Performance = () => {
                   strokeWidth={3}
                   dot={{ r: 4 }}
                 />
-
               </LineChart>
             </ResponsiveContainer>
-
           </div>
         </section>
 
@@ -759,9 +729,7 @@ const Performance = () => {
         ============================== */}
 
         <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
           <div className="mb-6">
-
             <h2 className="text-xl font-semibold">
               Detailed Benchmark Results
             </h2>
@@ -769,17 +737,12 @@ const Performance = () => {
             <p className="mt-1 text-sm text-slate-500">
               Average values across 5 independent runs.
             </p>
-
           </div>
 
           <div className="overflow-x-auto">
-
             <table className="w-full min-w-[1100px] text-left text-sm">
-
               <thead>
-
                 <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-
                   <th className="px-4 py-4">
                     Dataset
                   </th>
@@ -799,13 +762,10 @@ const Performance = () => {
                   <th className="px-4 py-4">
                     Throughput
                   </th>
-
                 </tr>
-
               </thead>
 
               <tbody>
-
                 {benchmarkData
                   .flatMap((item) => [
                     {
@@ -847,17 +807,14 @@ const Performance = () => {
                       key={index}
                       className="border-b border-slate-800/70 transition hover:bg-slate-800/40"
                     >
-
                       <td className="px-4 py-4 font-medium text-white">
                         {row.size.toLocaleString()}
                       </td>
 
                       <td className="px-4 py-4">
-
                         <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-200">
                           {row.method}
                         </span>
-
                       </td>
 
                       <td className="px-4 py-4 text-slate-300">
@@ -871,14 +828,10 @@ const Performance = () => {
                       <td className="px-4 py-4 text-slate-300">
                         {row.throughput.toFixed(0)} records/s
                       </td>
-
                     </tr>
                   ))}
-
               </tbody>
-
             </table>
-
           </div>
         </section>
 
@@ -887,19 +840,14 @@ const Performance = () => {
         ============================== */}
 
         <section className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-6">
-
           <div className="flex gap-4">
-
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
-
               <span className="text-lg">
                 i
               </span>
-
             </div>
 
             <div>
-
               <h2 className="text-lg font-semibold">
                 Research Observation
               </h2>
@@ -919,11 +867,8 @@ const Performance = () => {
                 not be interpreted as true multithreaded or
                 parallel processing.
               </p>
-
             </div>
-
           </div>
-
         </section>
 
       </main>

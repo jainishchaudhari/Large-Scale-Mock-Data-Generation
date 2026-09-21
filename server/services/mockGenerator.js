@@ -8,8 +8,11 @@ const generateValue = (type) => {
     case "email":
       return faker.internet.email();
 
-    case "number":
+    case "age":
       return faker.number.int({ min: 18, max: 80 });
+
+    case "number":
+      return faker.number.int({ min: 1, max: 1000 });
 
     case "city":
       return faker.location.city();
@@ -26,8 +29,14 @@ const generateValue = (type) => {
     case "address":
       return faker.location.streetAddress();
 
+    case "date":
+      return faker.date.past().toISOString();
+
     case "boolean":
       return faker.datatype.boolean();
+
+    case "text":
+      return faker.lorem.sentence();
 
     default:
       return faker.lorem.word();

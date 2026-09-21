@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import Editor from "@monaco-editor/react";
 
 const Generate = () => {
   const navigate = useNavigate();
@@ -8,73 +8,28 @@ const Generate = () => {
   const [records, setRecords] = useState(1000);
   const [method, setMethod] = useState("Batch");
 
-  const [fields, setFields] = useState([
-    { name: "name", type: "name" },
-    { name: "email", type: "email" },
-    { name: "age", type: "number" },
-    { name: "city", type: "city" },
-    { name: "country", type: "country" },
-  ]);
+  const [schemaText, setSchemaText] = useState(`{
+  "name": "string",
+  "email": "string",
+  "age": "number",
+  "city": "string",
+  "country": "string"
+}`);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const dataTypes = [
-    "name",
-    "email",
-    "number",
-    "city",
-    "country",
-    "phone",
-    "company",
-    "address",
-    "boolean",
-  ];
+  const formatJson = () => {
+    try {
+      const parsed = JSON.parse(schemaText);
 
-  /* -----------------------------
-     Add New Field
-  ----------------------------- */
+      setSchemaText(JSON.stringify(parsed, null, 2));
 
-  const addField = () => {
-    setFields([
-      ...fields,
-      {
-        name: "",
-        type: "name",
-      },
-    ]);
-  };
-
-  /* -----------------------------
-     Remove Field
-  ----------------------------- */
-
-  const removeField = (index) => {
-    if (fields.length === 1) {
-      return;
+      setError("");
+    } catch (err) {
+      setError("Cannot format invalid JSON. Please fix the JSON syntax first.");
     }
-
-    setFields(fields.filter((_, i) => i !== index));
   };
-
-  /* -----------------------------
-     Update Field
-  ----------------------------- */
-
-  const updateField = (index, key, value) => {
-    const updatedFields = [...fields];
-
-    updatedFields[index] = {
-      ...updatedFields[index],
-      [key]: value,
-    };
-
-    setFields(updatedFields);
-  };
-
-  /* -----------------------------
-     Generate Data
-  ----------------------------- */
 
   const handleGenerate = async () => {
     setError("");
@@ -91,35 +46,37 @@ const Generate = () => {
       return;
     }
 
-    const validFields = fields.filter((field) => field.name.trim() !== "");
+    let schema;
 
-    if (validFields.length === 0) {
-      setError("Please add at least one valid field.");
+    try {
+      schema = JSON.parse(schemaText);
+    } catch (err) {
+      setError("Invalid JSON format. Please check your schema.");
       return;
     }
 
-    const duplicateNames = validFields
-      .map((field) => field.name.trim())
-      .filter((name, index, array) => array.indexOf(name) !== index);
-
-    if (duplicateNames.length > 0) {
-      setError("Field names must be unique.");
+    if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+      setError("Schema must be a valid JSON object.");
       return;
     }
 
-    const schema = {};
+    const fields = Object.keys(schema);
 
-    validFields.forEach((field) => {
-      schema[field.name.trim()] = field.type;
-    });
+    if (fields.length === 0) {
+      setError("Please add at least one field to the schema.");
+      return;
+    }
 
     try {
       setLoading(true);
+
+      const token = localStorage.getItem("token");
 
       const response = await fetch("http://localhost:5000/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           schema,
@@ -176,6 +133,8 @@ const Generate = () => {
           records: result.records,
           method: result.method,
           schema,
+          originalSchema: result.originalSchema,
+          normalizedSchema: result.normalizedSchema,
           generationTime: result.generationTime,
           memoryUsed: result.memoryUsed,
         },
@@ -192,13 +151,8 @@ const Generate = () => {
     }
   };
 
-  /* -----------------------------
-     UI
-  ----------------------------- */
-
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-
       <main className="mx-auto max-w-6xl px-6 py-10">
         {/* Header */}
 
@@ -227,79 +181,87 @@ const Generate = () => {
 
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           {/* =========================
-              Schema Section
+              Schema Editor
           ========================= */}
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Schema Definition</h2>
+          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+            {/* Editor Header */}
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Define the fields for each generated record.
-                </p>
-              </div>
+            <div className="border-b border-slate-800 px-6 py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">Schema Definition</h2>
 
-              <button
-                onClick={addField}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold transition hover:bg-purple-700"
-              >
-                + Add Field
-              </button>
-            </div>
-
-            {/* Field Header */}
-
-            <div className="mb-3 hidden grid-cols-[1fr_180px_45px] gap-4 px-1 text-xs uppercase tracking-wider text-slate-500 sm:grid">
-              <span>Field Name</span>
-              <span>Data Type</span>
-              <span></span>
-            </div>
-
-            {/* Fields */}
-
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div
-                  key={index}
-                  className="grid gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:grid-cols-[1fr_180px_45px]"
-                >
-                  {/* Field Name */}
-
-                  <input
-                    type="text"
-                    value={field.name}
-                    onChange={(e) => updateField(index, "name", e.target.value)}
-                    placeholder="Field name"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
-                  />
-
-                  {/* Data Type */}
-
-                  <select
-                    value={field.type}
-                    onChange={(e) => updateField(index, "type", e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white outline-none transition focus:border-purple-500"
-                  >
-                    {dataTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Remove */}
-
-                  <button
-                    onClick={() => removeField(index)}
-                    disabled={fields.length === 1}
-                    className="rounded-lg border border-slate-700 px-3 py-2 text-slate-400 transition hover:border-red-500/50 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
-                    title="Remove field"
-                  >
-                    ×
-                  </button>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Define the fields using JSON format.
+                  </p>
                 </div>
-              ))}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={formatJson}
+                    className="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:border-purple-500 hover:text-purple-400"
+                  >
+                    Format JSON
+                  </button>
+
+                  <span className="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
+                    JSON
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Monaco Editor */}
+
+            <div className="overflow-hidden">
+              <Editor
+                height="430px"
+                language="json"
+                theme="vs-dark"
+                value={schemaText}
+                onChange={(value) => {
+                  setSchemaText(value || "");
+                  setError("");
+                }}
+                options={{
+                  minimap: {
+                    enabled: false,
+                  },
+                  fontSize: 14,
+                  lineHeight: 24,
+                  padding: {
+                    top: 18,
+                    bottom: 18,
+                  },
+                  tabSize: 2,
+                  wordWrap: "on",
+                  automaticLayout: true,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                  scrollBeyondLastLine: false,
+                  roundedSelection: false,
+                  renderLineHighlight: "line",
+                  folding: true,
+                  suggestOnTriggerCharacters: true,
+                }}
+              />
+            </div>
+
+            {/* Editor Footer */}
+
+            <div className="border-t border-slate-800 bg-slate-950/50 px-6 py-4">
+              <p className="text-xs leading-5 text-slate-500">
+                Example:{" "}
+                <span className="text-slate-400">
+                  {'{ "name": "string", "age": "number" }'}
+                </span>
+              </p>
+
+              <p className="mt-1 text-xs text-slate-600">
+                Supported types: name, email, number, city, country, phone,
+                company, address, boolean
+              </p>
             </div>
           </section>
 
@@ -403,9 +365,7 @@ const Generate = () => {
           </section>
         </div>
 
-        {/* =========================
-            Information
-        ========================= */}
+        {/* Information */}
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
           <div className="flex gap-4">
@@ -414,11 +374,12 @@ const Generate = () => {
             </div>
 
             <div>
-              <h3 className="font-semibold text-white">Supported Data Types</h3>
+              <h3 className="font-semibold text-white">JSON Schema Input</h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                name, email, number, city, country, phone, company, address and
-                boolean are currently supported by the Faker.js generator.
+                Enter field names and their basic types in JSON format. MockGen
+                uses AI-assisted schema interpretation to identify the semantic
+                meaning of fields before generating realistic mock data.
               </p>
             </div>
           </div>

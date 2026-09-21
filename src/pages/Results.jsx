@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-
+import Editor from "@monaco-editor/react";
 
 const Results = () => {
   const location = useLocation();
@@ -19,9 +19,13 @@ const Results = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/results"
-        );
+        const token = localStorage.getItem("token");
+
+        const response = await fetch("http://localhost:5000/api/results", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         const data = await response.json();
 
@@ -29,10 +33,7 @@ const Results = () => {
           setHistory(data.results);
         }
       } catch (error) {
-        console.error(
-          "Failed to fetch generation history:",
-          error
-        );
+        console.error("Failed to fetch generation history:", error);
       } finally {
         setLoadingHistory(false);
       }
@@ -48,16 +49,13 @@ const Results = () => {
   if (!result || !result.data) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-
         <main className="mx-auto max-w-3xl px-6 py-20">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-purple-400">
               <span className="text-2xl">!</span>
             </div>
 
-            <h1 className="mt-5 text-2xl font-bold">
-              No Generated Data
-            </h1>
+            <h1 className="mt-5 text-2xl font-bold">No Generated Data</h1>
 
             <p className="mt-3 text-slate-400">
               Generate mock data first to view the results.
@@ -124,9 +122,7 @@ const Results = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-
       <main className="mx-auto max-w-7xl px-6 py-10">
-
         {/* ==============================
             Header
         ============================== */}
@@ -142,8 +138,8 @@ const Results = () => {
             </h1>
 
             <p className="mt-3 max-w-2xl text-slate-400">
-              Your mock dataset has been successfully generated and is ready
-              for inspection or export.
+              Your mock dataset has been successfully generated and is ready for
+              inspection or export.
             </p>
           </div>
 
@@ -160,29 +156,22 @@ const Results = () => {
         ============================== */}
 
         <section className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
           {/* Records */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">
-              Records Generated
-            </p>
+            <p className="text-sm text-slate-400">Records Generated</p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
               {(result.records || data.length).toLocaleString()}
             </h2>
 
-            <p className="mt-2 text-xs text-slate-500">
-              Total mock records
-            </p>
+            <p className="mt-2 text-xs text-slate-500">Total mock records</p>
           </div>
 
           {/* Method */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">
-              Generation Method
-            </p>
+            <p className="text-sm text-slate-400">Generation Method</p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
               {result.method || "Batch"}
@@ -196,9 +185,7 @@ const Results = () => {
           {/* Time */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">
-              Generation Time
-            </p>
+            <p className="text-sm text-slate-400">Generation Time</p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
               {result.generationTime || "N/A"}
@@ -212,9 +199,7 @@ const Results = () => {
           {/* Memory */}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">
-              Memory Delta
-            </p>
+            <p className="text-sm text-slate-400">Memory Delta</p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
               {result.memoryUsed || "N/A"}
@@ -224,22 +209,81 @@ const Results = () => {
               Observed RSS memory change
             </p>
           </div>
-
         </section>
+
+        {/* ==============================
+            AI Schema Interpretation
+        ============================== */}
+
+        {result.originalSchema && result.normalizedSchema && (
+          <section className="mb-8 rounded-2xl border border-purple-500/20 bg-slate-900 p-6">
+            <div className="mb-5">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-xl font-semibold">
+                  AI Schema Interpretation
+                </h2>
+
+                <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
+                  GEMINI AI
+                </span>
+              </div>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Gemini analyzed the input fields and identified their semantic
+                meaning before mock data generation.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-4">Original Field</th>
+
+                    <th className="px-4 py-4">Input Type</th>
+
+                    <th className="px-4 py-4">AI Interpretation</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {Object.entries(result.originalSchema).map(
+                    ([field, type]) => (
+                      <tr key={field} className="border-b border-slate-800/70">
+                        <td className="px-4 py-4 font-medium text-white">
+                          {field}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
+                            {type}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <span className="rounded-md bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400">
+                            {result.normalizedSchema[field] || "text"}
+                          </span>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         {/* ==============================
             Data Preview
         ============================== */}
 
         <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900">
-
           {/* Section Header */}
 
           <div className="flex flex-col justify-between gap-4 border-b border-slate-800 p-6 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-xl font-semibold">
-                JSON Data Preview
-              </h2>
+              <h2 className="text-xl font-semibold">JSON Data Preview</h2>
 
               <p className="mt-1 text-sm text-slate-500">
                 Preview of the generated mock dataset.
@@ -247,7 +291,6 @@ const Results = () => {
             </div>
 
             <div className="flex gap-3">
-
               <button
                 onClick={handleCopy}
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-purple-500/50 hover:text-white"
@@ -261,18 +304,40 @@ const Results = () => {
               >
                 Download JSON
               </button>
-
             </div>
           </div>
 
           {/* JSON */}
 
-          <div className="max-h-[600px] overflow-auto p-6">
-            <pre className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-sm leading-6 text-slate-300">
-              <code>{jsonData}</code>
-            </pre>
+          <div className="overflow-hidden p-6">
+            <div className="overflow-hidden rounded-xl border border-slate-800">
+              <Editor
+                height="600px"
+                language="json"
+                theme="vs-dark"
+                value={jsonData}
+                options={{
+                  readOnly: true,
+                  minimap: {
+                    enabled: false,
+                  },
+                  fontSize: 14,
+                  lineHeight: 24,
+                  padding: {
+                    top: 18,
+                    bottom: 18,
+                  },
+                  wordWrap: "on",
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  folding: true,
+                  renderLineHighlight: "line",
+                  renderWhitespace: "selection",
+                  contextmenu: true,
+                }}
+              />
+            </div>
           </div>
-
         </section>
 
         {/* ==============================
@@ -281,56 +346,41 @@ const Results = () => {
 
         {result.schema && (
           <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
             <div className="mb-5">
-              <h2 className="text-xl font-semibold">
-                Schema Used
-              </h2>
+              <h2 className="text-xl font-semibold">Schema Used</h2>
 
               <p className="mt-1 text-sm text-slate-500">
-                Fields and data types used for generation.
+                Fields and data types submitted for generation.
               </p>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-
                 <thead>
                   <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-                    <th className="px-4 py-4">
-                      Field
-                    </th>
+                    <th className="px-4 py-4">Field</th>
 
-                    <th className="px-4 py-4">
-                      Data Type
-                    </th>
+                    <th className="px-4 py-4">Data Type</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {Object.entries(result.schema).map(
-                    ([field, type]) => (
-                      <tr
-                        key={field}
-                        className="border-b border-slate-800/70"
-                      >
-                        <td className="px-4 py-4 font-medium text-white">
-                          {field}
-                        </td>
+                  {Object.entries(result.schema).map(([field, type]) => (
+                    <tr key={field} className="border-b border-slate-800/70">
+                      <td className="px-4 py-4 font-medium text-white">
+                        {field}
+                      </td>
 
-                        <td className="px-4 py-4">
-                          <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
-                            {type}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  )}
+                      <td className="px-4 py-4">
+                        <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
+                          {type}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
-
               </table>
             </div>
-
           </section>
         )}
 
@@ -339,11 +389,8 @@ const Results = () => {
         ============================== */}
 
         <section className="mb-8">
-
           <div className="mb-5">
-            <h2 className="text-xl font-semibold">
-              Generation History
-            </h2>
+            <h2 className="text-xl font-semibold">Generation History</h2>
 
             <p className="mt-1 text-sm text-slate-500">
               Previous datasets stored in MongoDB.
@@ -364,13 +411,10 @@ const Results = () => {
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-
                   <thead className="border-b border-slate-800 bg-slate-950">
                     <tr>
-
                       <th className="px-6 py-4 text-sm font-semibold text-slate-300">
                         Records
                       </th>
@@ -390,7 +434,6 @@ const Results = () => {
                       <th className="px-6 py-4 text-sm font-semibold text-slate-300">
                         Created
                       </th>
-
                     </tr>
                   </thead>
 
@@ -400,7 +443,6 @@ const Results = () => {
                         key={item._id}
                         className="border-b border-slate-800 last:border-b-0"
                       >
-
                         <td className="px-6 py-4 text-sm text-white">
                           {item.records.toLocaleString()}
                         </td>
@@ -420,21 +462,15 @@ const Results = () => {
                         </td>
 
                         <td className="px-6 py-4 text-sm text-slate-400">
-                          {new Date(
-                            item.createdAt
-                          ).toLocaleString()}
+                          {new Date(item.createdAt).toLocaleString()}
                         </td>
-
                       </tr>
                     ))}
                   </tbody>
-
                 </table>
               </div>
-
             </div>
           )}
-
         </section>
 
         {/* ==============================
@@ -442,20 +478,13 @@ const Results = () => {
         ============================== */}
 
         <section className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-6">
-
           <div className="flex gap-4">
-
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
-              <span className="text-lg">
-                i
-              </span>
+              <span className="text-lg">i</span>
             </div>
 
             <div>
-
-              <h2 className="text-lg font-semibold">
-                Generation Summary
-              </h2>
+              <h2 className="text-lg font-semibold">Generation Summary</h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 {result.method === "Streaming"
@@ -469,13 +498,9 @@ const Results = () => {
                 vary because of Node.js runtime allocation and garbage
                 collection.
               </p>
-
             </div>
-
           </div>
-
         </section>
-
       </main>
     </div>
   );

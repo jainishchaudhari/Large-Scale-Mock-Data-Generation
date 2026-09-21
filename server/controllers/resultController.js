@@ -2,8 +2,9 @@ import Generation from "../models/Generation.js";
 
 export const getResults = async (req, res) => {
   try {
-    const results = await Generation.find()
-      .sort({ createdAt: -1 });
+    const results = await Generation.find({
+      userId: req.userId,
+    }).sort({ createdAt: -1 });
 
     return res.json({
       success: true,
