@@ -3,6 +3,7 @@ import { fallbackSchema } from "../services/schemaFallback.js";
 
 import { generateBatch } from "../services/batchGenerator.js";
 import { generateStreaming } from "../services/streamingGenerator.js";
+
 import Generation from "../models/Generation.js";
 
 const allowedTypes = new Set([
@@ -21,7 +22,11 @@ const allowedTypes = new Set([
 ]);
 
 const isValidNormalizedSchema = (candidate, originalSchema) => {
-  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+  if (
+    !candidate ||
+    typeof candidate !== "object" ||
+    Array.isArray(candidate)
+  ) {
     return false;
   }
 
@@ -35,32 +40,44 @@ const isValidNormalizedSchema = (candidate, originalSchema) => {
   return originalFields.every(
     (field) =>
       Object.prototype.hasOwnProperty.call(candidate, field) &&
-      allowedTypes.has(candidate[field]),
+      allowedTypes.has(candidate[field])
   );
 };
 
 export const generateData = async (req, res) => {
   try {
-    const { schema, records, method = "Batch" } = req.body;
+    const {
+      schema,
+      records,
+      method = "Batch",
+      batchSize = 100,
+    } = req.body;
 
-    // ==============================
+    // ==========================================
     // Schema Validation
-    // ==============================
+    // ==========================================
 
-    if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    if (
+      !schema ||
+      typeof schema !== "object" ||
+      Array.isArray(schema)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Valid schema is required",
       });
     }
 
-    // ==============================
+    // ==========================================
     // Records Validation
-    // ==============================
+    // ==========================================
 
     const totalRecords = Number(records);
 
-    if (!Number.isInteger(totalRecords) || totalRecords < 1) {
+    if (
+      !Number.isInteger(totalRecords) ||
+      totalRecords < 1
+    ) {
       return res.status(400).json({
         success: false,
         message: "Records must be a positive integer",
@@ -74,102 +91,267 @@ export const generateData = async (req, res) => {
       });
     }
 
-    // ==============================
+    // ==========================================
+    // Batch Size Validation
+    // ==========================================
+
+    const selectedBatchSize = Number(batchSize);
+
+    if (method === "Batch") {
+      if (
+        !Number.isInteger(selectedBatchSize) ||
+        selectedBatchSize < 1
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Batch size must be a positive integer",
+        });
+      }
+
+      if (selectedBatchSize > totalRecords) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Batch size cannot be greater than total records",
+        });
+      }
+    }
+
+    // ==========================================
     // AI Schema Interpretation
-    // ==============================
+    // ==========================================
 
     let normalizedSchema;
 
     try {
       normalizedSchema = await interpretSchema(schema);
 
-      console.log("AI normalized schema:", normalizedSchema);
+      console.log(
+        "AI normalized schema:",
+        normalizedSchema
+      );
 
-      // Validate Gemini output
-      if (!isValidNormalizedSchema(normalizedSchema, schema)) {
-        console.warn("Invalid AI schema output. Using rule-based fallback.");
+      if (
+        !isValidNormalizedSchema(
+          normalizedSchema,
+          schema
+        )
+      ) {
+        console.warn(
+          "Invalid AI schema output. Using rule-based fallback."
+        );
 
         normalizedSchema = fallbackSchema(schema);
       }
     } catch (error) {
-      console.warn("Gemini unavailable. Using rule-based fallback.");
+      console.warn(
+        "Gemini unavailable. Using rule-based fallback."
+      );
 
       normalizedSchema = fallbackSchema(schema);
 
-      console.log("Fallback normalized schema:", normalizedSchema);
+      console.log(
+        "Fallback normalized schema:",
+        normalizedSchema
+      );
     }
 
-    // ==============================
-    // Batch Generation
-    // ==============================
+    // ==========================================
+    // MINI-BATCH GENERATION
+    // ==========================================
 
     if (method === "Batch") {
-      const result = generateBatch(normalizedSchema, totalRecords);
+      console.log(
+        `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize}`
+      );
 
-      const generation = await Generation.create({
-        userId: req.userId,
+      res.setHeader(
+        "Content-Type",
+        "application/x-ndjson"
+      );
 
-        // Store original user schema
-        schema,
+      res.setHeader(
+        "Transfer-Encoding",
+        "chunked"
+      );
 
-        records: totalRecords,
+      res.setHeader(
+        "Cache-Control",
+        "no-cache"
+      );
 
-        method: "Batch",
+      res.setHeader(
+        "Connection",
+        "keep-alive"
+      );
 
-        generationTime: Number(result.generationTime),
+      let clientDisconnected = false;
 
-        memoryUsed: Number(result.memoryUsed),
+      req.on("close", () => {
+        clientDisconnected = true;
 
-        data: result.data,
+        console.log(
+          "Client disconnected during batch generation."
+        );
       });
 
-      return res.json({
-        success: true,
-        id: generation._id,
-        method: "Batch",
-        records: totalRecords,
+      try {
+        const result = await generateBatch(
+          normalizedSchema,
+          totalRecords,
+          selectedBatchSize,
+          async (batch) => {
+            if (clientDisconnected) {
+              return;
+            }
 
-        originalSchema: schema,
-        normalizedSchema,
+            const batchResponse = {
+              type: "batch",
+              batchNumber: batch.batchNumber,
+              batchSize: batch.batchSize,
+              totalGenerated: batch.totalGenerated,
+              totalRecords: batch.totalRecords,
+              data: batch.data,
+            };
 
-        generationTime: `${result.generationTime} ms`,
+            res.write(
+              JSON.stringify(batchResponse) + "\n"
+            );
 
-        memoryUsed: `${result.memoryUsed} MB`,
+            console.log(
+              `Batch ${batch.batchNumber} sent to client`
+            );
+          }
+        );
 
-        data: result.data,
-      });
+        if (clientDisconnected) {
+          return;
+        }
+
+        // ==========================================
+        // Save Complete Dataset to MongoDB
+        // ==========================================
+
+        const generation = await Generation.create({
+          userId: req.userId,
+
+          schema,
+
+          records: totalRecords,
+
+          method: "Batch",
+
+          generationTime: Number(
+            result.generationTime
+          ),
+
+          memoryUsed: Number(
+            result.memoryUsed
+          ),
+
+          data: result.data,
+        });
+
+        // ==========================================
+        // Send Final Metadata
+        // ==========================================
+
+        res.write(
+          JSON.stringify({
+            type: "complete",
+            success: true,
+
+            id: generation._id,
+
+            method: "Batch",
+
+            records: totalRecords,
+
+            batchSize: result.batchSize,
+
+            totalBatches: result.totalBatches,
+
+            originalSchema: schema,
+
+            normalizedSchema,
+
+            generationTime:
+              `${result.generationTime} ms`,
+
+            memoryUsed:
+              `${result.memoryUsed} MB`,
+          }) + "\n"
+        );
+
+        res.end();
+      } catch (error) {
+        console.error(
+          "Mini-Batch Generation Error:",
+          error
+        );
+
+        if (!res.headersSent) {
+          return res.status(500).json({
+            success: false,
+            message:
+              "Mini-batch generation failed",
+          });
+        }
+
+        res.end();
+      }
+
+      return;
     }
 
-    // ==============================
-    // Streaming Generation
-    // ==============================
+    // ==========================================
+    // STREAMING GENERATION
+    // ==========================================
 
     if (method === "Streaming") {
       const stream = generateStreaming(
         normalizedSchema,
         totalRecords,
         (result) => {
-          console.log("Streaming Generation Complete");
+          console.log(
+            "Streaming Generation Complete"
+          );
 
-          console.log(`Records: ${totalRecords}`);
+          console.log(
+            `Records: ${totalRecords}`
+          );
 
-          console.log(`Generation Time: ${result.generationTime} ms`);
+          console.log(
+            `Generation Time: ${result.generationTime} ms`
+          );
 
-          console.log(`Peak Memory Used: ${result.memoryUsed} MB`);
-        },
+          console.log(
+            `Peak Memory Used: ${result.memoryUsed} MB`
+          );
+        }
       );
 
-      res.setHeader("Content-Type", "application/x-ndjson");
+      res.setHeader(
+        "Content-Type",
+        "application/x-ndjson"
+      );
 
-      res.setHeader("Transfer-Encoding", "chunked");
+      res.setHeader(
+        "Transfer-Encoding",
+        "chunked"
+      );
 
       stream.on("error", (error) => {
-        console.error("Streaming Error:", error);
+        console.error(
+          "Streaming Error:",
+          error
+        );
 
         if (!res.headersSent) {
           res.status(500).json({
             success: false,
-            message: "Streaming generation failed",
+            message:
+              "Streaming generation failed",
           });
         } else {
           res.end();
@@ -181,16 +363,19 @@ export const generateData = async (req, res) => {
       return;
     }
 
-    // ==============================
+    // ==========================================
     // Invalid Method
-    // ==============================
+    // ==========================================
 
     return res.status(400).json({
       success: false,
       message: "Invalid generation method",
     });
   } catch (error) {
-    console.error("Generation Error:", error);
+    console.error(
+      "Generation Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
