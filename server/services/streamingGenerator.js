@@ -3,10 +3,12 @@ import { generateRecord } from "./mockGenerator.js";
 
 export const generateStreaming = (
   schema,
+  semanticMap,
   totalRecords,
   onComplete
 ) => {
   const startMemory = process.memoryUsage().rss;
+
   let peakMemory = startMemory;
 
   const startTime = performance.now();
@@ -32,7 +34,6 @@ export const generateStreaming = (
             1024
           ).toFixed(2);
 
-          // Final metadata record
           this.push(
             JSON.stringify({
               __metadata: true,
@@ -53,12 +54,23 @@ export const generateStreaming = (
         return;
       }
 
+      // --------------------------------
+      // Generate one record
+      // --------------------------------
+
       const record = {
         id: currentId,
-        ...generateRecord(schema),
+        ...generateRecord(
+          schema,
+          semanticMap
+        ),
       };
 
       currentId++;
+
+      // --------------------------------
+      // Track memory
+      // --------------------------------
 
       const currentMemory =
         process.memoryUsage().rss;
@@ -66,6 +78,10 @@ export const generateStreaming = (
       if (currentMemory > peakMemory) {
         peakMemory = currentMemory;
       }
+
+      // --------------------------------
+      // Send JSONL record
+      // --------------------------------
 
       this.push(
         JSON.stringify(record) + "\n"

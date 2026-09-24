@@ -6,6 +6,11 @@ import { generateStreaming } from "../services/streamingGenerator.js";
 
 import Generation from "../models/Generation.js";
 
+
+// ---------------------------------------------
+// Allowed semantic types
+// ---------------------------------------------
+
 const allowedTypes = new Set([
   "name",
   "email",
@@ -21,30 +26,176 @@ const allowedTypes = new Set([
   "text",
 ]);
 
-const isValidNormalizedSchema = (candidate, originalSchema) => {
+
+// ---------------------------------------------
+// Recursive AI semantic-map validation
+// ---------------------------------------------
+
+const isValidSemanticMap = (
+  semanticMap,
+  originalSchema,
+  parentPath = ""
+) => {
   if (
-    !candidate ||
-    typeof candidate !== "object" ||
-    Array.isArray(candidate)
+    !semanticMap ||
+    typeof semanticMap !== "object" ||
+    Array.isArray(semanticMap)
   ) {
     return false;
   }
 
-  const originalFields = Object.keys(originalSchema);
-  const normalizedFields = Object.keys(candidate);
+  for (const [field, definition] of Object.entries(
+    originalSchema
+  )) {
+    const currentPath = parentPath
+      ? `${parentPath}.${field}`
+      : field;
 
-  if (originalFields.length !== normalizedFields.length) {
-    return false;
+    // -----------------------------------------
+    // Nested object
+    // -----------------------------------------
+
+    if (
+      definition &&
+      typeof definition === "object" &&
+      definition.type === "object" &&
+      definition.properties
+    ) {
+      const nestedMap =
+        semanticMap[currentPath] ||
+        semanticMap[field];
+
+      // Gemini may return nested mappings as:
+      //
+      // {
+      //   "user.name": "name",
+      //   "user.age": "age"
+      // }
+      //
+      // Therefore check dot notation first.
+
+      const hasNestedDotPaths =
+        Object.keys(semanticMap).some(
+          (key) =>
+            key.startsWith(
+              `${currentPath}.`
+            )
+        );
+
+      if (hasNestedDotPaths) {
+        if (
+          !isValidSemanticMap(
+            semanticMap,
+            definition.properties,
+            currentPath
+          )
+        ) {
+          return false;
+        }
+      } else if (
+        nestedMap &&
+        typeof nestedMap === "object"
+      ) {
+        if (
+          !isValidSemanticMap(
+            nestedMap,
+            definition.properties,
+            ""
+          )
+        ) {
+          return false;
+        }
+      }
+
+      continue;
+    }
+
+    // -----------------------------------------
+    // Array
+    // -----------------------------------------
+
+    if (
+      definition &&
+      typeof definition === "object" &&
+      definition.type === "array" &&
+      definition.items
+    ) {
+      // Array of objects
+      if (
+        definition.items.type === "object" &&
+        definition.items.properties
+      ) {
+        const hasArrayDotPaths =
+          Object.keys(semanticMap).some(
+            (key) =>
+              key.startsWith(
+                `${currentPath}.`
+              )
+          );
+
+        if (hasArrayDotPaths) {
+          if (
+            !isValidSemanticMap(
+              semanticMap,
+              definition.items.properties,
+              `${currentPath}[]`
+            )
+          ) {
+            return false;
+          }
+        }
+
+        continue;
+      }
+
+      // Array of primitive values
+      const semanticType =
+        semanticMap[currentPath] ||
+        semanticMap[field];
+
+      if (
+        semanticType !== undefined &&
+        !allowedTypes.has(semanticType)
+      ) {
+        return false;
+      }
+
+      continue;
+    }
+
+    // -----------------------------------------
+    // Normal field
+    // -----------------------------------------
+
+    const semanticType =
+      semanticMap[currentPath] ??
+      semanticMap[field];
+
+    if (
+      semanticType === undefined
+    ) {
+      return false;
+    }
+
+    if (
+      !allowedTypes.has(semanticType)
+    ) {
+      return false;
+    }
   }
 
-  return originalFields.every(
-    (field) =>
-      Object.prototype.hasOwnProperty.call(candidate, field) &&
-      allowedTypes.has(candidate[field])
-  );
+  return true;
 };
 
-export const generateData = async (req, res) => {
+
+// ---------------------------------------------
+// Generate Data
+// ---------------------------------------------
+
+export const generateData = async (
+  req,
+  res
+) => {
   try {
     const {
       schema,
@@ -53,9 +204,10 @@ export const generateData = async (req, res) => {
       batchSize = 100,
     } = req.body;
 
-    // ==========================================
-    // Schema Validation
-    // ==========================================
+
+    // -----------------------------------------
+    // Validate schema
+    // -----------------------------------------
 
     if (
       !schema ||
@@ -64,51 +216,66 @@ export const generateData = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Valid schema is required",
+        message:
+          "Valid schema is required",
       });
     }
 
-    // ==========================================
-    // Records Validation
-    // ==========================================
 
-    const totalRecords = Number(records);
+    // -----------------------------------------
+    // Validate record count
+    // -----------------------------------------
+
+    const totalRecords =
+      Number(records);
 
     if (
-      !Number.isInteger(totalRecords) ||
+      !Number.isInteger(
+        totalRecords
+      ) ||
       totalRecords < 1
     ) {
       return res.status(400).json({
         success: false,
-        message: "Records must be a positive integer",
+        message:
+          "Records must be a positive integer",
       });
     }
 
     if (totalRecords > 10000) {
       return res.status(400).json({
         success: false,
-        message: "Maximum 10,000 records allowed for testing",
+        message:
+          "Maximum 10,000 records allowed for testing",
       });
     }
 
-    // ==========================================
-    // Batch Size Validation
-    // ==========================================
 
-    const selectedBatchSize = Number(batchSize);
+    // -----------------------------------------
+    // Validate batch size
+    // -----------------------------------------
+
+    const selectedBatchSize =
+      Number(batchSize);
 
     if (method === "Batch") {
       if (
-        !Number.isInteger(selectedBatchSize) ||
+        !Number.isInteger(
+          selectedBatchSize
+        ) ||
         selectedBatchSize < 1
       ) {
         return res.status(400).json({
           success: false,
-          message: "Batch size must be a positive integer",
+          message:
+            "Batch size must be a positive integer",
         });
       }
 
-      if (selectedBatchSize > totalRecords) {
+      if (
+        selectedBatchSize >
+        totalRecords
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -117,53 +284,66 @@ export const generateData = async (req, res) => {
       }
     }
 
-    // ==========================================
+
+    // -----------------------------------------
     // AI Schema Interpretation
-    // ==========================================
+    // -----------------------------------------
 
     let normalizedSchema;
 
     try {
-      normalizedSchema = await interpretSchema(schema);
+      normalizedSchema =
+        await interpretSchema(schema);
 
       console.log(
-        "AI normalized schema:",
+        "AI semantic map:",
         normalizedSchema
       );
 
+
+      // ---------------------------------------
+      // Validate AI output
+      // ---------------------------------------
+
       if (
-        !isValidNormalizedSchema(
+        !isValidSemanticMap(
           normalizedSchema,
           schema
         )
       ) {
         console.warn(
-          "Invalid AI schema output. Using rule-based fallback."
+          "Invalid AI semantic map. Using rule-based fallback."
         );
 
-        normalizedSchema = fallbackSchema(schema);
+        normalizedSchema =
+          fallbackSchema(schema);
       }
+
     } catch (error) {
       console.warn(
         "Gemini unavailable. Using rule-based fallback."
       );
 
-      normalizedSchema = fallbackSchema(schema);
+      normalizedSchema =
+        fallbackSchema(schema);
 
       console.log(
-        "Fallback normalized schema:",
+        "Fallback semantic map:",
         normalizedSchema
       );
     }
 
-    // ==========================================
+
+    // =========================================
     // MINI-BATCH GENERATION
-    // ==========================================
+    // =========================================
 
     if (method === "Batch") {
+
       console.log(
         `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize}`
       );
+
 
       res.setHeader(
         "Content-Type",
@@ -185,112 +365,129 @@ export const generateData = async (req, res) => {
         "keep-alive"
       );
 
-      let clientDisconnected = false;
+
+      let clientDisconnected =
+        false;
+
 
       req.on("close", () => {
-        clientDisconnected = true;
+        clientDisconnected =
+          true;
 
         console.log(
           "Client disconnected during batch generation."
         );
       });
 
+
       try {
-        const result = await generateBatch(
-          normalizedSchema,
-          totalRecords,
-          selectedBatchSize,
-          async (batch) => {
-            if (clientDisconnected) {
-              return;
+
+        const result =
+          await generateBatch(
+            normalizedSchema,
+            totalRecords,
+            selectedBatchSize,
+            async (batch) => {
+
+              if (
+                clientDisconnected
+              ) {
+                return;
+              }
+
+
+              const batchResponse = {
+                type: "batch",
+                batchNumber:
+                  batch.batchNumber,
+                batchSize:
+                  batch.batchSize,
+                totalGenerated:
+                  batch.totalGenerated,
+                totalRecords:
+                  batch.totalRecords,
+                data: batch.data,
+              };
+
+
+              res.write(
+                JSON.stringify(
+                  batchResponse
+                ) + "\n"
+              );
+
+
+              console.log(
+                `Batch ${batch.batchNumber} sent to client`
+              );
             }
+          );
 
-            const batchResponse = {
-              type: "batch",
-              batchNumber: batch.batchNumber,
-              batchSize: batch.batchSize,
-              totalGenerated: batch.totalGenerated,
-              totalRecords: batch.totalRecords,
-              data: batch.data,
-            };
 
-            res.write(
-              JSON.stringify(batchResponse) + "\n"
-            );
-
-            console.log(
-              `Batch ${batch.batchNumber} sent to client`
-            );
-          }
-        );
-
-        if (clientDisconnected) {
+        if (
+          clientDisconnected
+        ) {
           return;
         }
 
-        // ==========================================
-        // Save Complete Dataset to MongoDB
-        // ==========================================
 
-        const generation = await Generation.create({
-          userId: req.userId,
+        const generation =
+          await Generation.create({
+            userId: req.userId,
+            schema,
+            records:
+              totalRecords,
+            method: "Batch",
+            generationTime:
+              Number(
+                result.generationTime
+              ),
+            memoryUsed:
+              Number(
+                result.memoryUsed
+              ),
+            data:
+              result.data,
+          });
 
-          schema,
-
-          records: totalRecords,
-
-          method: "Batch",
-
-          generationTime: Number(
-            result.generationTime
-          ),
-
-          memoryUsed: Number(
-            result.memoryUsed
-          ),
-
-          data: result.data,
-        });
-
-        // ==========================================
-        // Send Final Metadata
-        // ==========================================
 
         res.write(
           JSON.stringify({
             type: "complete",
             success: true,
-
-            id: generation._id,
-
+            id:
+              generation._id,
             method: "Batch",
-
-            records: totalRecords,
-
-            batchSize: result.batchSize,
-
-            totalBatches: result.totalBatches,
-
-            originalSchema: schema,
-
+            records:
+              totalRecords,
+            batchSize:
+              result.batchSize,
+            totalBatches:
+              result.totalBatches,
+            originalSchema:
+              schema,
             normalizedSchema,
-
             generationTime:
               `${result.generationTime} ms`,
-
             memoryUsed:
               `${result.memoryUsed} MB`,
           }) + "\n"
         );
 
+
         res.end();
+
       } catch (error) {
+
         console.error(
           "Mini-Batch Generation Error:",
           error
         );
 
-        if (!res.headersSent) {
+
+        if (
+          !res.headersSent
+        ) {
           return res.status(500).json({
             success: false,
             message:
@@ -298,38 +495,46 @@ export const generateData = async (req, res) => {
           });
         }
 
+
         res.end();
       }
+
 
       return;
     }
 
-    // ==========================================
+
+    // =========================================
     // STREAMING GENERATION
-    // ==========================================
+    // =========================================
 
     if (method === "Streaming") {
-      const stream = generateStreaming(
-        normalizedSchema,
-        totalRecords,
-        (result) => {
-          console.log(
-            "Streaming Generation Complete"
-          );
 
-          console.log(
-            `Records: ${totalRecords}`
-          );
+      const stream =
+        generateStreaming(
+          schema,
+          normalizedSchema,
+          totalRecords,
+          (result) => {
 
-          console.log(
-            `Generation Time: ${result.generationTime} ms`
-          );
+            console.log(
+              "Streaming Generation Complete"
+            );
 
-          console.log(
-            `Peak Memory Used: ${result.memoryUsed} MB`
-          );
-        }
-      );
+            console.log(
+              `Records: ${totalRecords}`
+            );
+
+            console.log(
+              `Generation Time: ${result.generationTime} ms`
+            );
+
+            console.log(
+              `Peak Memory Used: ${result.memoryUsed} MB`
+            );
+          }
+        );
+
 
       res.setHeader(
         "Content-Type",
@@ -341,46 +546,62 @@ export const generateData = async (req, res) => {
         "chunked"
       );
 
-      stream.on("error", (error) => {
-        console.error(
-          "Streaming Error:",
-          error
-        );
 
-        if (!res.headersSent) {
-          res.status(500).json({
-            success: false,
-            message:
-              "Streaming generation failed",
-          });
-        } else {
-          res.end();
+      stream.on(
+        "error",
+        (error) => {
+
+          console.error(
+            "Streaming Error:",
+            error
+          );
+
+
+          if (
+            !res.headersSent
+          ) {
+            res.status(500).json({
+              success: false,
+              message:
+                "Streaming generation failed",
+            });
+          } else {
+            res.end();
+          }
         }
-      });
+      );
+
 
       stream.pipe(res);
 
       return;
     }
 
-    // ==========================================
-    // Invalid Method
-    // ==========================================
+
+    // -----------------------------------------
+    // Invalid method
+    // -----------------------------------------
 
     return res.status(400).json({
       success: false,
-      message: "Invalid generation method",
+      message:
+        "Invalid generation method",
     });
+
   } catch (error) {
+
     console.error(
       "Generation Error:",
       error
     );
 
+
     return res.status(500).json({
       success: false,
-      message: "Data generation failed",
-      error: error.message,
+      message:
+        "Data generation failed",
+      error:
+        error.message,
     });
   }
 };

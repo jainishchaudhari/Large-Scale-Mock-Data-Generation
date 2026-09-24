@@ -1,11 +1,6 @@
 import "dotenv/config";
 import { GoogleGenAI } from "@google/genai";
 
-console.log(
-  "Gemini API Key loaded:",
-  !!process.env.GEMINI_API_KEY
-);
-
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
@@ -13,12 +8,19 @@ const ai = new GoogleGenAI({
 export const interpretSchema = async (schema) => {
   try {
     const prompt = `
-You are a schema field interpreter for a mock data generation system.
+You are a semantic field interpreter for a mock data generation system.
 
-Analyze the following JSON schema and identify the semantic meaning
-of each field.
+Analyze the JSON schema and identify the semantic meaning of fields.
 
-Allowed types:
+IMPORTANT:
+- Do NOT modify the original schema.
+- Do NOT remove constraints.
+- Do NOT generate values.
+- Do NOT return JSON Schema.
+- Return only a flat semantic mapping for fields.
+- For nested fields, use dot notation.
+
+Allowed semantic types:
 name
 email
 age
@@ -32,9 +34,24 @@ number
 boolean
 text
 
-Return ONLY valid JSON.
-Do not include markdown.
-Do not include explanations.
+Example input:
+{
+  "age": {
+    "type": "integer",
+    "minimum": 5,
+    "maximum": 18
+  },
+  "gender": {
+    "type": "string",
+    "enum": ["Male", "Female", "Other"]
+  }
+}
+
+Return:
+{
+  "age": "age",
+  "gender": "text"
+}
 
 Input schema:
 ${JSON.stringify(schema)}

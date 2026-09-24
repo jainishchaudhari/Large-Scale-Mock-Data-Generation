@@ -12,9 +12,9 @@ const Results = () => {
 
   const result = location.state;
 
-  /* --------------------------------
-     Fetch Generation History
-  -------------------------------- */
+  // --------------------------------
+  // Fetch Generation History
+  // --------------------------------
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -36,7 +36,10 @@ const Results = () => {
           setHistory(data.results);
         }
       } catch (error) {
-        console.error("Failed to fetch generation history:", error);
+        console.error(
+          "Failed to fetch generation history:",
+          error
+        );
       } finally {
         setLoadingHistory(false);
       }
@@ -45,9 +48,9 @@ const Results = () => {
     fetchHistory();
   }, []);
 
-  /* --------------------------------
-     No Data State
-  -------------------------------- */
+  // --------------------------------
+  // No Data State
+  // --------------------------------
 
   if (!result || !result.data) {
     return (
@@ -82,9 +85,21 @@ const Results = () => {
 
   const jsonData = JSON.stringify(data, null, 2);
 
-  /* --------------------------------
-     Copy JSON
-  -------------------------------- */
+  // --------------------------------
+  // Helper: Display Schema Value
+  // --------------------------------
+
+  const formatSchemaValue = (value) => {
+    if (typeof value === "object" && value !== null) {
+      return JSON.stringify(value);
+    }
+
+    return String(value);
+  };
+
+  // --------------------------------
+  // Copy JSON
+  // --------------------------------
 
   const handleCopy = async () => {
     try {
@@ -100,9 +115,9 @@ const Results = () => {
     }
   };
 
-  /* --------------------------------
-     Download JSON
-  -------------------------------- */
+  // --------------------------------
+  // Download JSON
+  // --------------------------------
 
   const handleDownload = () => {
     const blob = new Blob([jsonData], {
@@ -128,16 +143,17 @@ const Results = () => {
     URL.revokeObjectURL(url);
   };
 
-  /* --------------------------------
-     Calculate Batch Information
-  -------------------------------- */
+  // --------------------------------
+  // Calculate Batch Information
+  // --------------------------------
 
   const batchSize = Number(result.batchSize || 0);
 
   const totalBatches =
     result.method === "Batch" && batchSize > 0
       ? Math.ceil(
-          Number(result.records || data.length) / batchSize
+          Number(result.records || data.length) /
+            batchSize
         )
       : 0;
 
@@ -160,8 +176,9 @@ const Results = () => {
             </h1>
 
             <p className="mt-3 max-w-2xl text-slate-400">
-              Your mock dataset has been successfully generated and is ready
-              for inspection or export.
+              Your mock dataset has been successfully
+              generated and is ready for inspection or
+              export.
             </p>
           </div>
 
@@ -193,7 +210,9 @@ const Results = () => {
             </p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
-              {(result.records || data.length).toLocaleString()}
+              {(
+                result.records || data.length
+              ).toLocaleString()}
             </h2>
 
             <p className="mt-2 text-xs text-slate-500">
@@ -284,7 +303,6 @@ const Results = () => {
               Observed RSS memory change
             </p>
           </div>
-
         </section>
 
         {/* ==============================
@@ -306,8 +324,9 @@ const Results = () => {
                 </h2>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  The dataset was generated in smaller user-defined batches
-                  instead of processing all records as one batch.
+                  The dataset was generated in smaller
+                  user-defined batches instead of processing
+                  all records as one batch.
                 </p>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -318,7 +337,9 @@ const Results = () => {
                     </p>
 
                     <p className="mt-1 font-semibold text-white">
-                      {(result.records || data.length).toLocaleString()}
+                      {(
+                        result.records || data.length
+                      ).toLocaleString()}
                     </p>
                   </div>
 
@@ -344,7 +365,6 @@ const Results = () => {
 
                 </div>
               </div>
-
             </div>
           </section>
         )}
@@ -353,56 +373,59 @@ const Results = () => {
             AI Schema Interpretation
         ============================== */}
 
-        {result.originalSchema && result.normalizedSchema && (
-          <section className="mb-8 rounded-2xl border border-purple-500/20 bg-slate-900 p-6">
+        {result.originalSchema &&
+          result.normalizedSchema && (
+            <section className="mb-8 rounded-2xl border border-purple-500/20 bg-slate-900 p-6">
 
-            <div className="mb-5">
+              <div className="mb-5">
 
-              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
 
-                <h2 className="text-xl font-semibold">
-                  AI Schema Interpretation
-                </h2>
+                  <h2 className="text-xl font-semibold">
+                    AI Schema Interpretation
+                  </h2>
 
-                <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
-                  GEMINI AI
-                </span>
+                  <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
+                    GEMINI AI
+                  </span>
+
+                </div>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Gemini analyzed the input fields and
+                  identified their semantic meaning before
+                  mock data generation.
+                </p>
 
               </div>
 
-              <p className="mt-2 text-sm text-slate-500">
-                Gemini analyzed the input fields and identified their
-                semantic meaning before mock data generation.
-              </p>
+              <div className="overflow-x-auto">
 
-            </div>
+                <table className="w-full text-left text-sm">
 
-            <div className="overflow-x-auto">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
 
-              <table className="w-full text-left text-sm">
+                      <th className="px-4 py-4">
+                        Original Field
+                      </th>
 
-                <thead>
-                  <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+                      <th className="px-4 py-4">
+                        Input Type
+                      </th>
 
-                    <th className="px-4 py-4">
-                      Original Field
-                    </th>
+                      <th className="px-4 py-4">
+                        AI Interpretation
+                      </th>
 
-                    <th className="px-4 py-4">
-                      Input Type
-                    </th>
+                    </tr>
+                  </thead>
 
-                    <th className="px-4 py-4">
-                      AI Interpretation
-                    </th>
+                  <tbody>
 
-                  </tr>
-                </thead>
-
-                <tbody>
-
-                  {Object.entries(result.originalSchema).map(
-                    ([field, type]) => (
+                    {Object.entries(
+                      result.originalSchema
+                    ).map(([field, type]) => (
                       <tr
                         key={field}
                         className="border-b border-slate-800/70"
@@ -415,7 +438,7 @@ const Results = () => {
                         <td className="px-4 py-4">
 
                           <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
-                            {type}
+                            {formatSchemaValue(type)}
                           </span>
 
                         </td>
@@ -423,21 +446,23 @@ const Results = () => {
                         <td className="px-4 py-4">
 
                           <span className="rounded-md bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400">
-                            {result.normalizedSchema[field] || "text"}
+                            {formatSchemaValue(
+                              result.normalizedSchema[
+                                field
+                              ] || "text"
+                            )}
                           </span>
 
                         </td>
 
                       </tr>
-                    )
-                  )}
+                    ))}
 
-                </tbody>
-              </table>
-
-            </div>
-          </section>
-        )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
         {/* ==============================
             Data Preview
@@ -476,7 +501,6 @@ const Results = () => {
               </button>
 
             </div>
-
           </div>
 
           <div className="overflow-hidden p-6">
@@ -521,7 +545,6 @@ const Results = () => {
               />
 
             </div>
-
           </div>
         </section>
 
@@ -580,7 +603,7 @@ const Results = () => {
                         <td className="px-4 py-4">
 
                           <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
-                            {type}
+                            {formatSchemaValue(type)}
                           </span>
 
                         </td>
@@ -591,7 +614,6 @@ const Results = () => {
 
                 </tbody>
               </table>
-
             </div>
           </section>
         )}
@@ -708,14 +730,10 @@ const Results = () => {
                     ))}
 
                   </tbody>
-
                 </table>
-
               </div>
-
             </div>
           )}
-
         </section>
 
         {/* ==============================
@@ -758,9 +776,7 @@ const Results = () => {
               </p>
 
             </div>
-
           </div>
-
         </section>
 
       </main>
