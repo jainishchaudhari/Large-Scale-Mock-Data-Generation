@@ -9,6 +9,12 @@ const Generate = () => {
   const [method, setMethod] = useState("Batch");
   const [batchSize, setBatchSize] = useState(100);
 
+  // ==========================================
+  // Country / Data Locale
+  // ==========================================
+
+  const [country, setCountry] = useState("India");
+
   const [schemaText, setSchemaText] = useState(`{
   "name": "string",
   "email": "string",
@@ -139,6 +145,10 @@ const Generate = () => {
               method === "Batch"
                 ? selectedBatchSize
                 : null,
+
+            // Country will be connected to backend
+            // in the next step.
+            country,
           }),
         }
       );
@@ -295,6 +305,8 @@ const Generate = () => {
 
             schema,
 
+            country,
+
             batchSize:
               completeMetadata.batchSize ||
               selectedBatchSize,
@@ -426,6 +438,8 @@ const Generate = () => {
 
             schema,
 
+            country,
+
             originalSchema:
               metadata?.originalSchema,
 
@@ -503,7 +517,7 @@ const Generate = () => {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
 
           {/* ===================================
               Schema Editor
@@ -549,7 +563,7 @@ const Generate = () => {
             <div className="overflow-hidden">
 
               <Editor
-                height="430px"
+                height="360px"
                 language="json"
                 theme="vs-dark"
                 value={schemaText}
@@ -651,6 +665,49 @@ const Generate = () => {
 
               <p className="mt-2 text-xs text-slate-500">
                 Maximum 10,000 records for testing.
+              </p>
+
+            </div>
+
+            {/* Country / Data Locale */}
+
+            <div className="mt-7">
+
+              <label className="text-sm font-medium text-slate-300">
+                Country / Data Locale
+              </label>
+
+              <select
+                value={country}
+                onChange={(e) =>
+                  setCountry(e.target.value)
+                }
+                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
+              >
+                <option value="India">
+                  🇮🇳 India
+                </option>
+
+                <option value="United States">
+                  🇺🇸 United States
+                </option>
+
+                <option value="United Kingdom">
+                  🇬🇧 United Kingdom
+                </option>
+
+                <option value="Germany">
+                  🇩🇪 Germany
+                </option>
+
+                <option value="Canada">
+                  🇨🇦 Canada
+                </option>
+              </select>
+
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Select the country for country-specific
+                realistic mock data.
               </p>
 
             </div>

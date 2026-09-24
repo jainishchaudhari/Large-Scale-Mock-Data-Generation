@@ -1,10 +1,45 @@
-import { faker } from "@faker-js/faker";
+import {
+  fakerEN_IN,
+  fakerEN_US,
+  fakerEN_GB,
+  fakerDE,
+  fakerEN_CA,
+} from "@faker-js/faker";
+
+// ---------------------------------------------
+// Country → Faker Locale
+// ---------------------------------------------
+
+const getFakerByCountry = (country) => {
+  switch (country) {
+    case "India":
+      return fakerEN_IN;
+
+    case "United States":
+      return fakerEN_US;
+
+    case "United Kingdom":
+      return fakerEN_GB;
+
+    case "Germany":
+      return fakerDE;
+
+    case "Canada":
+      return fakerEN_CA;
+
+    default:
+      return fakerEN_IN;
+  }
+};
 
 // ---------------------------------------------
 // Utility: Generate realistic value
 // ---------------------------------------------
 
-const generateSemanticValue = (semanticType) => {
+const generateSemanticValue = (
+  semanticType,
+  faker
+) => {
   switch (semanticType) {
     case "name":
       return faker.person.fullName();
@@ -100,7 +135,8 @@ const satisfiesStringConstraints = (
 
 const generateStringValue = (
   definition,
-  semanticType
+  semanticType,
+  faker
 ) => {
   const minLength =
     definition.minLength ?? 1;
@@ -126,10 +162,15 @@ const generateStringValue = (
     semanticType &&
     semanticType !== "text"
   ) {
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (
+      let attempt = 0;
+      attempt < 20;
+      attempt++
+    ) {
       const value =
         generateSemanticValue(
-          semanticType
+          semanticType,
+          faker
         );
 
       if (
@@ -152,7 +193,10 @@ const generateStringValue = (
     const pattern =
       definition.pattern;
 
+    // -----------------------------------------
     // Only English letters
+    // -----------------------------------------
+
     if (
       pattern === "^[A-Za-z]+$"
     ) {
@@ -180,7 +224,10 @@ const generateStringValue = (
       });
     }
 
+    // -----------------------------------------
     // Only numbers
+    // -----------------------------------------
+
     if (
       pattern === "^[0-9]+$"
     ) {
@@ -207,7 +254,10 @@ const generateStringValue = (
       );
     }
 
+    // -----------------------------------------
     // Letters + numbers
+    // -----------------------------------------
+
     if (
       pattern ===
       "^[A-Za-z0-9]+$"
@@ -240,8 +290,12 @@ const generateStringValue = (
   // Generic realistic text
   // -------------------------------------------
 
-  for (let attempt = 0; attempt < 20; attempt++) {
-    let value =
+  for (
+    let attempt = 0;
+    attempt < 20;
+    attempt++
+  ) {
+    const value =
       faker.lorem.words(
         faker.number.int({
           min: 1,
@@ -289,7 +343,8 @@ const generateStringValue = (
 
 const generateSchemaValue = (
   definition,
-  semanticType
+  semanticType,
+  faker
 ) => {
   // -------------------------------------------
   // Old format support
@@ -297,7 +352,8 @@ const generateSchemaValue = (
 
   if (typeof definition === "string") {
     return generateSemanticValue(
-      semanticType || definition
+      semanticType || definition,
+      faker
     );
   }
 
@@ -310,7 +366,8 @@ const generateSchemaValue = (
     typeof definition !== "object"
   ) {
     return generateSemanticValue(
-      semanticType || "text"
+      semanticType || "text",
+      faker
     );
   }
 
@@ -328,10 +385,13 @@ const generateSchemaValue = (
   // STRING
   // -------------------------------------------
 
-  if (definition.type === "string") {
+  if (
+    definition.type === "string"
+  ) {
     return generateStringValue(
       definition,
-      semanticType
+      semanticType,
+      faker
     );
   }
 
@@ -401,7 +461,8 @@ const generateSchemaValue = (
   // -------------------------------------------
 
   return generateSemanticValue(
-    semanticType || "text"
+    semanticType || "text",
+    faker
   );
 };
 
@@ -412,7 +473,8 @@ const generateSchemaValue = (
 const generateFromSchema = (
   schema,
   semanticMap = {},
-  parentPath = ""
+  parentPath = "",
+  faker
 ) => {
   const result = {};
 
@@ -447,7 +509,8 @@ const generateFromSchema = (
         generateFromSchema(
           definition.properties,
           semanticMap,
-          currentPath
+          currentPath,
+          faker
         );
 
       continue;
@@ -488,7 +551,10 @@ const generateFromSchema = (
         i < count;
         i++
       ) {
-        // Nested object
+        // -------------------------------------
+        // Nested object inside array
+        // -------------------------------------
+
         if (
           definition.items.type ===
             "object" &&
@@ -499,14 +565,18 @@ const generateFromSchema = (
               definition.items
                 .properties,
               semanticMap,
-              `${currentPath}[]`
+              `${currentPath}[]`,
+              faker
             )
           );
 
           continue;
         }
 
+        // -------------------------------------
         // Normal array item
+        // -------------------------------------
+
         const semanticType =
           semanticMap[
             currentPath
@@ -515,7 +585,8 @@ const generateFromSchema = (
         result[field].push(
           generateSchemaValue(
             definition.items,
-            semanticType
+            semanticType,
+            faker
           )
         );
       }
@@ -536,7 +607,8 @@ const generateFromSchema = (
     result[field] =
       generateSchemaValue(
         definition,
-        semanticType
+        semanticType,
+        faker
       );
   }
 
@@ -549,10 +621,16 @@ const generateFromSchema = (
 
 export const generateRecord = (
   schema,
-  semanticMap = {}
+  semanticMap = {},
+  country = "India"
 ) => {
+  const fakerInstance =
+    getFakerByCountry(country);
+
   return generateFromSchema(
     schema,
-    semanticMap
+    semanticMap,
+    "",
+    fakerInstance
   );
 };

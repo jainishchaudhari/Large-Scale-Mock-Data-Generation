@@ -6,7 +6,6 @@ import { generateStreaming } from "../services/streamingGenerator.js";
 
 import Generation from "../models/Generation.js";
 
-
 // ---------------------------------------------
 // Allowed semantic types
 // ---------------------------------------------
@@ -26,7 +25,6 @@ const allowedTypes = new Set([
   "text",
 ]);
 
-
 // ---------------------------------------------
 // Recursive AI semantic-map validation
 // ---------------------------------------------
@@ -44,9 +42,10 @@ const isValidSemanticMap = (
     return false;
   }
 
-  for (const [field, definition] of Object.entries(
-    originalSchema
-  )) {
+  for (
+    const [field, definition]
+    of Object.entries(originalSchema)
+  ) {
     const currentPath = parentPath
       ? `${parentPath}.${field}`
       : field;
@@ -64,15 +63,6 @@ const isValidSemanticMap = (
       const nestedMap =
         semanticMap[currentPath] ||
         semanticMap[field];
-
-      // Gemini may return nested mappings as:
-      //
-      // {
-      //   "user.name": "name",
-      //   "user.age": "age"
-      // }
-      //
-      // Therefore check dot notation first.
 
       const hasNestedDotPaths =
         Object.keys(semanticMap).some(
@@ -155,7 +145,9 @@ const isValidSemanticMap = (
 
       if (
         semanticType !== undefined &&
-        !allowedTypes.has(semanticType)
+        !allowedTypes.has(
+          semanticType
+        )
       ) {
         return false;
       }
@@ -178,7 +170,9 @@ const isValidSemanticMap = (
     }
 
     if (
-      !allowedTypes.has(semanticType)
+      !allowedTypes.has(
+        semanticType
+      )
     ) {
       return false;
     }
@@ -186,7 +180,6 @@ const isValidSemanticMap = (
 
   return true;
 };
-
 
 // ---------------------------------------------
 // Generate Data
@@ -197,13 +190,18 @@ export const generateData = async (
   res
 ) => {
   try {
+
+    // -----------------------------------------
+    // Get request data
+    // -----------------------------------------
+
     const {
       schema,
       records,
       method = "Batch",
       batchSize = 100,
+      country = "India",
     } = req.body;
-
 
     // -----------------------------------------
     // Validate schema
@@ -220,7 +218,6 @@ export const generateData = async (
           "Valid schema is required",
       });
     }
-
 
     // -----------------------------------------
     // Validate record count
@@ -242,14 +239,15 @@ export const generateData = async (
       });
     }
 
-    if (totalRecords > 10000) {
+    if (
+      totalRecords > 10000
+    ) {
       return res.status(400).json({
         success: false,
         message:
           "Maximum 10,000 records allowed for testing",
       });
     }
-
 
     // -----------------------------------------
     // Validate batch size
@@ -258,7 +256,9 @@ export const generateData = async (
     const selectedBatchSize =
       Number(batchSize);
 
-    if (method === "Batch") {
+    if (
+      method === "Batch"
+    ) {
       if (
         !Number.isInteger(
           selectedBatchSize
@@ -284,7 +284,6 @@ export const generateData = async (
       }
     }
 
-
     // -----------------------------------------
     // AI Schema Interpretation
     // -----------------------------------------
@@ -293,13 +292,14 @@ export const generateData = async (
 
     try {
       normalizedSchema =
-        await interpretSchema(schema);
+        await interpretSchema(
+          schema
+        );
 
       console.log(
         "AI semantic map:",
         normalizedSchema
       );
-
 
       // ---------------------------------------
       // Validate AI output
@@ -316,7 +316,9 @@ export const generateData = async (
         );
 
         normalizedSchema =
-          fallbackSchema(schema);
+          fallbackSchema(
+            schema
+          );
       }
 
     } catch (error) {
@@ -325,7 +327,9 @@ export const generateData = async (
       );
 
       normalizedSchema =
-        fallbackSchema(schema);
+        fallbackSchema(
+          schema
+        );
 
       console.log(
         "Fallback semantic map:",
@@ -333,17 +337,16 @@ export const generateData = async (
       );
     }
 
-
     // =========================================
     // MINI-BATCH GENERATION
     // =========================================
 
-    if (method === "Batch") {
-
+    if (
+      method === "Batch"
+    ) {
       console.log(
         `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize}`
       );
-
 
       res.setHeader(
         "Content-Type",
@@ -365,23 +368,22 @@ export const generateData = async (
         "keep-alive"
       );
 
-
       let clientDisconnected =
         false;
 
+      req.on(
+        "close",
+        () => {
+          clientDisconnected =
+            true;
 
-      req.on("close", () => {
-        clientDisconnected =
-          true;
-
-        console.log(
-          "Client disconnected during batch generation."
-        );
-      });
-
+          console.log(
+            "Client disconnected during batch generation."
+          );
+        }
+      );
 
       try {
-
         const result =
           await generateBatch(
             normalizedSchema,
@@ -395,7 +397,6 @@ export const generateData = async (
                 return;
               }
 
-
               const batchResponse = {
                 type: "batch",
                 batchNumber:
@@ -406,9 +407,9 @@ export const generateData = async (
                   batch.totalGenerated,
                 totalRecords:
                   batch.totalRecords,
-                data: batch.data,
+                data:
+                  batch.data,
               };
-
 
               res.write(
                 JSON.stringify(
@@ -416,13 +417,11 @@ export const generateData = async (
                 ) + "\n"
               );
 
-
               console.log(
                 `Batch ${batch.batchNumber} sent to client`
               );
             }
           );
-
 
         if (
           clientDisconnected
@@ -430,10 +429,10 @@ export const generateData = async (
           return;
         }
 
-
         const generation =
           await Generation.create({
-            userId: req.userId,
+            userId:
+              req.userId,
             schema,
             records:
               totalRecords,
@@ -449,7 +448,6 @@ export const generateData = async (
             data:
               result.data,
           });
-
 
         res.write(
           JSON.stringify({
@@ -474,7 +472,6 @@ export const generateData = async (
           }) + "\n"
         );
 
-
         res.end();
 
       } catch (error) {
@@ -483,7 +480,6 @@ export const generateData = async (
           "Mini-Batch Generation Error:",
           error
         );
-
 
         if (
           !res.headersSent
@@ -495,26 +491,30 @@ export const generateData = async (
           });
         }
 
-
         res.end();
       }
 
-
       return;
     }
-
 
     // =========================================
     // STREAMING GENERATION
     // =========================================
 
-    if (method === "Streaming") {
+    if (
+      method === "Streaming"
+    ) {
+
+      console.log(
+        `Starting Streaming Generation | Total: ${totalRecords} | Country: ${country}`
+      );
 
       const stream =
         generateStreaming(
           schema,
           normalizedSchema,
           totalRecords,
+          country,
           (result) => {
 
             console.log(
@@ -523,6 +523,10 @@ export const generateData = async (
 
             console.log(
               `Records: ${totalRecords}`
+            );
+
+            console.log(
+              `Country: ${country}`
             );
 
             console.log(
@@ -535,7 +539,6 @@ export const generateData = async (
           }
         );
 
-
       res.setHeader(
         "Content-Type",
         "application/x-ndjson"
@@ -546,7 +549,6 @@ export const generateData = async (
         "chunked"
       );
 
-
       stream.on(
         "error",
         (error) => {
@@ -555,7 +557,6 @@ export const generateData = async (
             "Streaming Error:",
             error
           );
-
 
           if (
             !res.headersSent
@@ -571,12 +572,10 @@ export const generateData = async (
         }
       );
 
-
       stream.pipe(res);
 
       return;
     }
-
 
     // -----------------------------------------
     // Invalid method
@@ -594,7 +593,6 @@ export const generateData = async (
       "Generation Error:",
       error
     );
-
 
     return res.status(500).json({
       success: false,

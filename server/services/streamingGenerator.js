@@ -5,13 +5,16 @@ export const generateStreaming = (
   schema,
   semanticMap,
   totalRecords,
+  country = "India",
   onComplete
 ) => {
-  const startMemory = process.memoryUsage().rss;
+  const startMemory =
+    process.memoryUsage().rss;
 
   let peakMemory = startMemory;
 
-  const startTime = performance.now();
+  const startTime =
+    performance.now();
 
   let currentId = 1;
   let completed = false;
@@ -22,7 +25,8 @@ export const generateStreaming = (
         if (!completed) {
           completed = true;
 
-          const endTime = performance.now();
+          const endTime =
+            performance.now();
 
           const generationTime = (
             endTime - startTime
@@ -60,9 +64,11 @@ export const generateStreaming = (
 
       const record = {
         id: currentId,
+
         ...generateRecord(
           schema,
-          semanticMap
+          semanticMap,
+          country
         ),
       };
 
@@ -75,7 +81,9 @@ export const generateStreaming = (
       const currentMemory =
         process.memoryUsage().rss;
 
-      if (currentMemory > peakMemory) {
+      if (
+        currentMemory > peakMemory
+      ) {
         peakMemory = currentMemory;
       }
 
