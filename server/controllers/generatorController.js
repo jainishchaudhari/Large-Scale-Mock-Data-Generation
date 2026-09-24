@@ -26,7 +26,7 @@ const allowedTypes = new Set([
 ]);
 
 // ---------------------------------------------
-// Recursive AI semantic-map validation
+// Recursive semantic-map validation
 // ---------------------------------------------
 
 const isValidSemanticMap = (
@@ -43,8 +43,9 @@ const isValidSemanticMap = (
   }
 
   for (
-    const [field, definition]
-    of Object.entries(originalSchema)
+    const [field, definition] of Object.entries(
+      originalSchema
+    )
   ) {
     const currentPath = parentPath
       ? `${parentPath}.${field}`
@@ -110,7 +111,10 @@ const isValidSemanticMap = (
       definition.type === "array" &&
       definition.items
     ) {
+      // ---------------------------------------
       // Array of objects
+      // ---------------------------------------
+
       if (
         definition.items.type === "object" &&
         definition.items.properties
@@ -138,7 +142,10 @@ const isValidSemanticMap = (
         continue;
       }
 
+      // ---------------------------------------
       // Array of primitive values
+      // ---------------------------------------
+
       const semanticType =
         semanticMap[currentPath] ||
         semanticMap[field];
@@ -181,16 +188,15 @@ const isValidSemanticMap = (
   return true;
 };
 
-// ---------------------------------------------
+// =============================================
 // Generate Data
-// ---------------------------------------------
+// =============================================
 
 export const generateData = async (
   req,
   res
 ) => {
   try {
-
     // -----------------------------------------
     // Get request data
     // -----------------------------------------
@@ -284,17 +290,19 @@ export const generateData = async (
       }
     }
 
-    // -----------------------------------------
-    // AI Schema Interpretation
-    // -----------------------------------------
+    // =========================================
+    // AI SCHEMA INTERPRETATION
+    // =========================================
 
     let normalizedSchema;
 
     try {
+      // ---------------------------------------
+      // Try Gemini AI
+      // ---------------------------------------
+
       normalizedSchema =
-        await interpretSchema(
-          schema
-        );
+        await interpretSchema(schema);
 
       console.log(
         "AI semantic map:",
@@ -316,25 +324,88 @@ export const generateData = async (
         );
 
         normalizedSchema =
-          fallbackSchema(
-            schema
-          );
+          fallbackSchema(schema);
+
+        console.log(
+          "Rule-based fallback semantic map:",
+          normalizedSchema
+        );
       }
 
     } catch (error) {
-      console.warn(
-        "Gemini unavailable. Using rule-based fallback."
-      );
+      // ---------------------------------------
+      // Detect Gemini rate limit
+      // ---------------------------------------
+
+      const errorMessage =
+        error?.message || "";
+
+      const isRateLimit =
+        error?.status === 429 ||
+        error?.statusCode === 429 ||
+        errorMessage.includes("429") ||
+        errorMessage
+          .toLowerCase()
+          .includes("rate limit") ||
+        errorMessage
+          .toLowerCase()
+          .includes("quota") ||
+        errorMessage
+          .toLowerCase()
+          .includes("limit exceeded");
+
+      // ---------------------------------------
+      // Rate limit message
+      // ---------------------------------------
+
+      if (isRateLimit) {
+        console.warn(
+          "⚠️ AI limit exceeded. Using rule-based fallback."
+        );
+      }
+
+      // ---------------------------------------
+      // Other AI error
+      // ---------------------------------------
+
+      else {
+        console.warn(
+          "⚠️ AI unavailable. Using rule-based fallback."
+        );
+      }
+
+      // ---------------------------------------
+      // Rule-based fallback
+      // ---------------------------------------
 
       normalizedSchema =
-        fallbackSchema(
-          schema
-        );
+        fallbackSchema(schema);
 
       console.log(
         "Fallback semantic map:",
         normalizedSchema
       );
+    }
+
+    // =========================================
+    // Validate final semantic map
+    // =========================================
+
+    if (
+      !isValidSemanticMap(
+        normalizedSchema,
+        schema
+      )
+    ) {
+      console.warn(
+        "Invalid semantic map after fallback."
+      );
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Unable to interpret schema fields",
+      });
     }
 
     // =========================================
@@ -345,8 +416,12 @@ export const generateData = async (
       method === "Batch"
     ) {
       console.log(
-        `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize}`
+        `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize} | Country: ${country}`
       );
+
+      // ---------------------------------------
+      // NDJSON response headers
+      // ---------------------------------------
 
       res.setHeader(
         "Content-Type",
@@ -371,6 +446,10 @@ export const generateData = async (
       let clientDisconnected =
         false;
 
+      // ---------------------------------------
+      // Detect client disconnect
+      // ---------------------------------------
+
       req.on(
         "close",
         () => {
@@ -384,13 +463,18 @@ export const generateData = async (
       );
 
       try {
+        // -------------------------------------
+        // Generate batches
+        // -------------------------------------
+
         const result =
           await generateBatch(
+            schema,
             normalizedSchema,
             totalRecords,
             selectedBatchSize,
+            country,
             async (batch) => {
-
               if (
                 clientDisconnected
               ) {
@@ -399,14 +483,19 @@ export const generateData = async (
 
               const batchResponse = {
                 type: "batch",
+
                 batchNumber:
                   batch.batchNumber,
+
                 batchSize:
                   batch.batchSize,
+
                 totalGenerated:
                   batch.totalGenerated,
+
                 totalRecords:
                   batch.totalRecords,
+
                 data:
                   batch.data,
               };
@@ -423,50 +512,82 @@ export const generateData = async (
             }
           );
 
+        // -------------------------------------
+        // Stop if client disconnected
+        // -------------------------------------
+
         if (
           clientDisconnected
         ) {
           return;
         }
 
+        // -------------------------------------
+        // Save generation result to MongoDB
+        // -------------------------------------
+
         const generation =
           await Generation.create({
             userId:
               req.userId,
+
             schema,
+
             records:
               totalRecords,
-            method: "Batch",
+
+            method:
+              "Batch",
+
             generationTime:
               Number(
                 result.generationTime
               ),
+
             memoryUsed:
               Number(
                 result.memoryUsed
               ),
+
             data:
               result.data,
           });
 
+        // -------------------------------------
+        // Send completion response
+        // -------------------------------------
+
         res.write(
           JSON.stringify({
             type: "complete",
+
             success: true,
+
             id:
               generation._id,
-            method: "Batch",
+
+            method:
+              "Batch",
+
             records:
               totalRecords,
+
             batchSize:
               result.batchSize,
+
             totalBatches:
               result.totalBatches,
+
             originalSchema:
               schema,
+
             normalizedSchema,
+
+            country,
+
             generationTime:
               `${result.generationTime} ms`,
+
             memoryUsed:
               `${result.memoryUsed} MB`,
           }) + "\n"
@@ -475,7 +596,6 @@ export const generateData = async (
         res.end();
 
       } catch (error) {
-
         console.error(
           "Mini-Batch Generation Error:",
           error
@@ -504,10 +624,13 @@ export const generateData = async (
     if (
       method === "Streaming"
     ) {
-
       console.log(
         `Starting Streaming Generation | Total: ${totalRecords} | Country: ${country}`
       );
+
+      // ---------------------------------------
+      // Create streaming generator
+      // ---------------------------------------
 
       const stream =
         generateStreaming(
@@ -516,7 +639,6 @@ export const generateData = async (
           totalRecords,
           country,
           (result) => {
-
             console.log(
               "Streaming Generation Complete"
             );
@@ -539,6 +661,10 @@ export const generateData = async (
           }
         );
 
+      // ---------------------------------------
+      // NDJSON response headers
+      // ---------------------------------------
+
       res.setHeader(
         "Content-Type",
         "application/x-ndjson"
@@ -549,10 +675,13 @@ export const generateData = async (
         "chunked"
       );
 
+      // ---------------------------------------
+      // Streaming error handling
+      // ---------------------------------------
+
       stream.on(
         "error",
         (error) => {
-
           console.error(
             "Streaming Error:",
             error
@@ -572,14 +701,18 @@ export const generateData = async (
         }
       );
 
+      // ---------------------------------------
+      // Pipe stream to response
+      // ---------------------------------------
+
       stream.pipe(res);
 
       return;
     }
 
-    // -----------------------------------------
-    // Invalid method
-    // -----------------------------------------
+    // =========================================
+    // INVALID METHOD
+    // =========================================
 
     return res.status(400).json({
       success: false,
@@ -588,6 +721,9 @@ export const generateData = async (
     });
 
   } catch (error) {
+    // -----------------------------------------
+    // Global error handler
+    // -----------------------------------------
 
     console.error(
       "Generation Error:",

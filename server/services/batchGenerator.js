@@ -2,13 +2,17 @@ import { generateRecord } from "./mockGenerator.js";
 
 export const generateBatch = async (
   schema,
+  semanticMap,
   totalRecords,
   batchSize,
+  country = "India",
   onBatch
 ) => {
   const startTime = performance.now();
 
-  const startMemory = process.memoryUsage().rss;
+  const startMemory =
+    process.memoryUsage().rss;
+
   let peakMemory = startMemory;
 
   let generatedRecords = 0;
@@ -16,58 +20,108 @@ export const generateBatch = async (
 
   const allData = [];
 
-  while (generatedRecords < totalRecords) {
+  while (
+    generatedRecords < totalRecords
+  ) {
     batchNumber++;
 
-    const currentBatchSize = Math.min(
-      batchSize,
-      totalRecords - generatedRecords
-    );
+    const currentBatchSize =
+      Math.min(
+        batchSize,
+        totalRecords - generatedRecords
+      );
 
     const batchData = [];
 
     console.log(
-      `Generating Batch ${batchNumber} | Records: ${currentBatchSize}`
+      `Generating Batch ${batchNumber} | Records: ${currentBatchSize} | Country: ${country}`
     );
 
-    for (let i = 0; i < currentBatchSize; i++) {
+    // -----------------------------------------
+    // Generate current batch
+    // -----------------------------------------
+
+    for (
+      let i = 0;
+      i < currentBatchSize;
+      i++
+    ) {
       const record = {
-        id: generatedRecords + i + 1,
-        ...generateRecord(schema),
+        id:
+          generatedRecords +
+          i +
+          1,
+
+        ...generateRecord(
+          schema,
+          semanticMap,
+          country
+        ),
       };
 
       batchData.push(record);
 
-      const currentMemory = process.memoryUsage().rss;
+      // ---------------------------------------
+      // Track peak memory
+      // ---------------------------------------
 
-      if (currentMemory > peakMemory) {
-        peakMemory = currentMemory;
+      const currentMemory =
+        process.memoryUsage().rss;
+
+      if (
+        currentMemory > peakMemory
+      ) {
+        peakMemory =
+          currentMemory;
       }
     }
 
-    generatedRecords += currentBatchSize;
+    generatedRecords +=
+      currentBatchSize;
 
-    // Keep complete dataset for MongoDB storage
-    allData.push(...batchData);
+    // -----------------------------------------
+    // Keep complete dataset
+    // -----------------------------------------
+
+    allData.push(
+      ...batchData
+    );
 
     console.log(
       `Batch ${batchNumber} Complete | Total Generated: ${generatedRecords}`
     );
 
-    // Send this batch immediately
+    // -----------------------------------------
+    // Send batch immediately
+    // -----------------------------------------
+
     await onBatch({
       batchNumber,
-      batchSize: currentBatchSize,
-      totalGenerated: generatedRecords,
+      batchSize:
+        currentBatchSize,
+      totalGenerated:
+        generatedRecords,
       totalRecords,
-      data: batchData,
+      data:
+        batchData,
     });
 
-    // Give Node.js event loop a chance to send the response
-    await new Promise((resolve) => setImmediate(resolve));
+    // -----------------------------------------
+    // Give Node.js event loop a chance
+    // -----------------------------------------
+
+    await new Promise(
+      (resolve) =>
+        setImmediate(resolve)
+    );
   }
 
-  const endTime = performance.now();
+  // -------------------------------------------
+  // Performance calculation
+  // -------------------------------------------
+
+  const endTime =
+    performance.now();
 
   const generationTime = (
     endTime - startTime
@@ -79,20 +133,61 @@ export const generateBatch = async (
     1024
   ).toFixed(2);
 
-  console.log("--------------------------------");
-  console.log("Mini-Batch Generation Complete");
-  console.log(`Total Records: ${totalRecords}`);
-  console.log(`Batch Size: ${batchSize}`);
-  console.log(`Total Batches: ${batchNumber}`);
-  console.log(`Generation Time: ${generationTime} ms`);
-  console.log(`Peak Memory Used: ${memoryUsed} MB`);
-  console.log("--------------------------------");
+  // -------------------------------------------
+  // Performance logs
+  // -------------------------------------------
+
+  console.log(
+    "--------------------------------"
+  );
+
+  console.log(
+    "Mini-Batch Generation Complete"
+  );
+
+  console.log(
+    `Total Records: ${totalRecords}`
+  );
+
+  console.log(
+    `Batch Size: ${batchSize}`
+  );
+
+  console.log(
+    `Total Batches: ${batchNumber}`
+  );
+
+  console.log(
+    `Country: ${country}`
+  );
+
+  console.log(
+    `Generation Time: ${generationTime} ms`
+  );
+
+  console.log(
+    `Peak Memory Used: ${memoryUsed} MB`
+  );
+
+  console.log(
+    "--------------------------------"
+  );
+
+  // -------------------------------------------
+  // Return result
+  // -------------------------------------------
 
   return {
-    data: allData,
+    data:
+      allData,
+
     generationTime,
+
     memoryUsed,
+
     batchSize,
-    totalBatches: batchNumber,
+
+    totalBatches:
+      batchNumber,
   };
 };

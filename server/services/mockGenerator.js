@@ -36,10 +36,7 @@ const getFakerByCountry = (country) => {
 // Utility: Generate realistic value
 // ---------------------------------------------
 
-const generateSemanticValue = (
-  semanticType,
-  faker
-) => {
+const generateSemanticValue = (semanticType, faker) => {
   switch (semanticType) {
     case "name":
       return faker.person.fullName();
@@ -92,28 +89,20 @@ const generateSemanticValue = (
 // String constraint helper
 // ---------------------------------------------
 
-const satisfiesStringConstraints = (
-  value,
-  definition
-) => {
-  const minLength =
-    definition.minLength ?? 1;
+const satisfiesStringConstraints = (value, definition) => {
+  const minLength = definition.minLength ?? 1;
 
-  const maxLength =
-    definition.maxLength ?? 20;
+  // Do not impose an artificial maximum
+  // when maxLength is not provided by the user.
+  const maxLength = definition.maxLength ?? Infinity;
 
-  if (
-    value.length < minLength ||
-    value.length > maxLength
-  ) {
+  if (value.length < minLength || value.length > maxLength) {
     return false;
   }
 
   if (definition.pattern) {
     try {
-      const regex = new RegExp(
-        definition.pattern
-      );
+      const regex = new RegExp(definition.pattern);
 
       if (!regex.test(value)) {
         return false;
@@ -121,7 +110,7 @@ const satisfiesStringConstraints = (
     } catch {
       console.warn(
         "Invalid regex pattern:",
-        definition.pattern
+        definition.pattern,
       );
     }
   }
@@ -136,13 +125,13 @@ const satisfiesStringConstraints = (
 const generateStringValue = (
   definition,
   semanticType,
-  faker
+  faker,
 ) => {
-  const minLength =
-    definition.minLength ?? 1;
+  const minLength = definition.minLength ?? 1;
 
-  const maxLength =
-    definition.maxLength ?? 20;
+  // Do not impose an artificial maximum.
+  // Respect maxLength only when explicitly provided.
+  const maxLength = definition.maxLength ?? Infinity;
 
   // -------------------------------------------
   // ENUM
@@ -150,7 +139,7 @@ const generateStringValue = (
 
   if (Array.isArray(definition.enum)) {
     return faker.helpers.arrayElement(
-      definition.enum
+      definition.enum,
     );
   }
 
@@ -170,14 +159,14 @@ const generateStringValue = (
       const value =
         generateSemanticValue(
           semanticType,
-          faker
+          faker,
         );
 
       if (
         typeof value === "string" &&
         satisfiesStringConstraints(
           value,
-          definition
+          definition,
         )
       ) {
         return value;
@@ -202,12 +191,15 @@ const generateStringValue = (
     ) {
       const min = Math.max(
         minLength,
-        1
+        1,
       );
 
       const max = Math.max(
         min,
-        Math.min(maxLength, 50)
+        Math.min(
+          maxLength,
+          50,
+        ),
       );
 
       const length =
@@ -233,12 +225,15 @@ const generateStringValue = (
     ) {
       const min = Math.max(
         minLength,
-        1
+        1,
       );
 
       const max = Math.max(
         min,
-        Math.min(maxLength, 50)
+        Math.min(
+          maxLength,
+          50,
+        ),
       );
 
       const length =
@@ -250,7 +245,7 @@ const generateStringValue = (
             });
 
       return faker.string.numeric(
-        length
+        length,
       );
     }
 
@@ -264,12 +259,15 @@ const generateStringValue = (
     ) {
       const min = Math.max(
         minLength,
-        1
+        1,
       );
 
       const max = Math.max(
         min,
-        Math.min(maxLength, 50)
+        Math.min(
+          maxLength,
+          50,
+        ),
       );
 
       const length =
@@ -281,7 +279,7 @@ const generateStringValue = (
             });
 
       return faker.string.alphanumeric(
-        length
+        length,
       );
     }
   }
@@ -300,7 +298,7 @@ const generateStringValue = (
         faker.number.int({
           min: 1,
           max: 4,
-        })
+        }),
       );
 
     if (
@@ -330,7 +328,7 @@ const generateStringValue = (
   ) {
     value = value.substring(
       0,
-      maxLength
+      maxLength,
     );
   }
 
@@ -344,16 +342,18 @@ const generateStringValue = (
 const generateSchemaValue = (
   definition,
   semanticType,
-  faker
+  faker,
 ) => {
   // -------------------------------------------
   // Old format support
   // -------------------------------------------
 
-  if (typeof definition === "string") {
+  if (
+    typeof definition === "string"
+  ) {
     return generateSemanticValue(
       semanticType || definition,
-      faker
+      faker,
     );
   }
 
@@ -367,7 +367,7 @@ const generateSchemaValue = (
   ) {
     return generateSemanticValue(
       semanticType || "text",
-      faker
+      faker,
     );
   }
 
@@ -375,9 +375,13 @@ const generateSchemaValue = (
   // ENUM
   // -------------------------------------------
 
-  if (Array.isArray(definition.enum)) {
+  if (
+    Array.isArray(
+      definition.enum,
+    )
+  ) {
     return faker.helpers.arrayElement(
-      definition.enum
+      definition.enum,
     );
   }
 
@@ -391,7 +395,7 @@ const generateSchemaValue = (
     return generateStringValue(
       definition,
       semanticType,
-      faker
+      faker,
     );
   }
 
@@ -462,7 +466,7 @@ const generateSchemaValue = (
 
   return generateSemanticValue(
     semanticType || "text",
-    faker
+    faker,
   );
 };
 
@@ -474,7 +478,7 @@ const generateFromSchema = (
   schema,
   semanticMap = {},
   parentPath = "",
-  faker
+  faker,
 ) => {
   const result = {};
 
@@ -486,7 +490,9 @@ const generateFromSchema = (
     // JSON Schema keyword
     // -----------------------------------------
 
-    if (field === "required") {
+    if (
+      field === "required"
+    ) {
       continue;
     }
 
@@ -510,7 +516,7 @@ const generateFromSchema = (
           definition.properties,
           semanticMap,
           currentPath,
-          faker
+          faker,
         );
 
       continue;
@@ -562,12 +568,11 @@ const generateFromSchema = (
         ) {
           result[field].push(
             generateFromSchema(
-              definition.items
-                .properties,
+              definition.items.properties,
               semanticMap,
               `${currentPath}[]`,
-              faker
-            )
+              faker,
+            ),
           );
 
           continue;
@@ -578,16 +583,14 @@ const generateFromSchema = (
         // -------------------------------------
 
         const semanticType =
-          semanticMap[
-            currentPath
-          ];
+          semanticMap[currentPath];
 
         result[field].push(
           generateSchemaValue(
             definition.items,
             semanticType,
-            faker
-          )
+            faker,
+          ),
         );
       }
 
@@ -599,16 +602,14 @@ const generateFromSchema = (
     // -----------------------------------------
 
     const semanticType =
-      semanticMap[
-        currentPath
-      ] ||
+      semanticMap[currentPath] ||
       semanticMap[field];
 
     result[field] =
       generateSchemaValue(
         definition,
         semanticType,
-        faker
+        faker,
       );
   }
 
@@ -622,15 +623,17 @@ const generateFromSchema = (
 export const generateRecord = (
   schema,
   semanticMap = {},
-  country = "India"
+  country = "India",
 ) => {
   const fakerInstance =
-    getFakerByCountry(country);
+    getFakerByCountry(
+      country,
+    );
 
   return generateFromSchema(
     schema,
     semanticMap,
     "",
-    fakerInstance
+    fakerInstance,
   );
 };
