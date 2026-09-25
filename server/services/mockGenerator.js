@@ -33,10 +33,26 @@ const getFakerByCountry = (country) => {
 };
 
 // ---------------------------------------------
-// Utility: Generate realistic value
+// Country Value Generator
 // ---------------------------------------------
 
-const generateSemanticValue = (semanticType, faker) => {
+const getCountryValue = (country, faker) => {
+  if (country && country !== "Global") {
+    return country;
+  }
+
+  return faker.location.country();
+};
+
+// ---------------------------------------------
+// Utility: Generate realistic semantic value
+// ---------------------------------------------
+
+const generateSemanticValue = (
+  semanticType,
+  faker,
+  country = "Global",
+) => {
   switch (semanticType) {
     case "name":
       return faker.person.fullName();
@@ -60,7 +76,7 @@ const generateSemanticValue = (semanticType, faker) => {
       return faker.location.city();
 
     case "country":
-      return faker.location.country();
+      return getCountryValue(country, faker);
 
     case "phone":
       return faker.phone.number();
@@ -86,23 +102,58 @@ const generateSemanticValue = (semanticType, faker) => {
 };
 
 // ---------------------------------------------
-// String constraint helper
+// Get numeric constraint
+// Supports:
+// min/max
+// minimum/maximum
 // ---------------------------------------------
 
-const satisfiesStringConstraints = (value, definition) => {
-  const minLength = definition.minLength ?? 1;
+const getMinimum = (definition, defaultValue = 0) => {
+  return (
+    definition.min ??
+    definition.minimum ??
+    defaultValue
+  );
+};
 
-  // Do not impose an artificial maximum
-  // when maxLength is not provided by the user.
-  const maxLength = definition.maxLength ?? Infinity;
+const getMaximum = (
+  definition,
+  defaultValue = 1000,
+) => {
+  return (
+    definition.max ??
+    definition.maximum ??
+    defaultValue
+  );
+};
 
-  if (value.length < minLength || value.length > maxLength) {
+// ---------------------------------------------
+// String constraint checker
+// ---------------------------------------------
+
+const satisfiesStringConstraints = (
+  value,
+  definition,
+) => {
+  const minLength =
+    definition.minLength ?? 1;
+
+  const maxLength =
+    definition.maxLength ?? Infinity;
+
+  if (
+    typeof value !== "string" ||
+    value.length < minLength ||
+    value.length > maxLength
+  ) {
     return false;
   }
 
   if (definition.pattern) {
     try {
-      const regex = new RegExp(definition.pattern);
+      const regex = new RegExp(
+        definition.pattern,
+      );
 
       if (!regex.test(value)) {
         return false;
@@ -119,6 +170,168 @@ const satisfiesStringConstraints = (value, definition) => {
 };
 
 // ---------------------------------------------
+// Generate string from common patterns
+// ---------------------------------------------
+
+const generatePatternValue = (
+  pattern,
+  definition,
+  faker,
+) => {
+  const minLength =
+    definition.minLength ?? 1;
+
+  const maxLength =
+    definition.maxLength ?? 50;
+
+  // -------------------------------------------
+  // STU12345 / COL12345 / EMP12345
+  // PAT12345 / CUS12345 / ORD12345
+  // -------------------------------------------
+
+  const prefixPattern =
+    /^\^([A-Za-z]+)\[0-9\]\+\$$/;
+
+  const prefixMatch =
+    pattern.match(prefixPattern);
+
+  if (prefixMatch) {
+    const prefix = prefixMatch[1];
+
+    const minimumDigits = Math.max(
+      1,
+      minLength - prefix.length,
+    );
+
+    const maximumDigits = Math.max(
+      minimumDigits,
+      Math.min(
+        12,
+        maxLength - prefix.length,
+      ),
+    );
+
+    const digitLength =
+      faker.number.int({
+        min: minimumDigits,
+        max: maximumDigits,
+      });
+
+    return (
+      prefix +
+      faker.string.numeric(digitLength)
+    );
+  }
+
+  // -------------------------------------------
+  // Indian 10-digit mobile number
+  // -------------------------------------------
+
+  if (
+    pattern === "^[6-9][0-9]{9}$"
+  ) {
+    return (
+      faker.helpers.arrayElement([
+        "6",
+        "7",
+        "8",
+        "9",
+      ]) +
+      faker.string.numeric(9)
+    );
+  }
+
+  // -------------------------------------------
+  // Six digit postal code
+  // -------------------------------------------
+
+  if (pattern === "^[0-9]{6}$") {
+    return faker.string.numeric(6);
+  }
+
+  // -------------------------------------------
+  // Only English letters
+  // -------------------------------------------
+
+  if (pattern === "^[A-Za-z]+$") {
+    const min = Math.max(
+      1,
+      minLength,
+    );
+
+    const max = Math.max(
+      min,
+      Math.min(maxLength, 50),
+    );
+
+    const length =
+      faker.number.int({
+        min,
+        max,
+      });
+
+    return faker.string.alpha({
+      length,
+      casing: "mixed",
+    });
+  }
+
+  // -------------------------------------------
+  // Only numbers
+  // -------------------------------------------
+
+  if (pattern === "^[0-9]+$") {
+    const min = Math.max(
+      1,
+      minLength,
+    );
+
+    const max = Math.max(
+      min,
+      Math.min(maxLength, 50),
+    );
+
+    const length =
+      faker.number.int({
+        min,
+        max,
+      });
+
+    return faker.string.numeric(length);
+  }
+
+  // -------------------------------------------
+  // Letters + numbers
+  // -------------------------------------------
+
+  if (
+    pattern === "^[A-Za-z0-9]+$"
+  ) {
+    const min = Math.max(
+      1,
+      minLength,
+    );
+
+    const max = Math.max(
+      min,
+      Math.min(maxLength, 50),
+    );
+
+    const length =
+      faker.number.int({
+        min,
+        max,
+      });
+
+    return faker.string.alphanumeric(
+      length,
+    );
+  }
+
+  return null;
+};
+
+// ---------------------------------------------
 // Generate realistic string with constraints
 // ---------------------------------------------
 
@@ -126,12 +339,13 @@ const generateStringValue = (
   definition,
   semanticType,
   faker,
+  country,
 ) => {
-  const minLength = definition.minLength ?? 1;
+  const minLength =
+    definition.minLength ?? 1;
 
-  // Do not impose an artificial maximum.
-  // Respect maxLength only when explicitly provided.
-  const maxLength = definition.maxLength ?? Infinity;
+  const maxLength =
+    definition.maxLength ?? Infinity;
 
   // -------------------------------------------
   // ENUM
@@ -144,7 +358,41 @@ const generateStringValue = (
   }
 
   // -------------------------------------------
-  // Try realistic semantic value first
+  // COUNTRY
+  // -------------------------------------------
+
+  if (semanticType === "country") {
+    return getCountryValue(
+      country,
+      faker,
+    );
+  }
+
+  // -------------------------------------------
+  // PATTERN
+  // -------------------------------------------
+
+  if (definition.pattern) {
+    const patternValue =
+      generatePatternValue(
+        definition.pattern,
+        definition,
+        faker,
+      );
+
+    if (
+      patternValue &&
+      satisfiesStringConstraints(
+        patternValue,
+        definition,
+      )
+    ) {
+      return patternValue;
+    }
+  }
+
+  // -------------------------------------------
+  // Semantic value
   // -------------------------------------------
 
   if (
@@ -160,6 +408,7 @@ const generateStringValue = (
         generateSemanticValue(
           semanticType,
           faker,
+          country,
         );
 
       if (
@@ -171,116 +420,6 @@ const generateStringValue = (
       ) {
         return value;
       }
-    }
-  }
-
-  // -------------------------------------------
-  // Pattern-specific generation
-  // -------------------------------------------
-
-  if (definition.pattern) {
-    const pattern =
-      definition.pattern;
-
-    // -----------------------------------------
-    // Only English letters
-    // -----------------------------------------
-
-    if (
-      pattern === "^[A-Za-z]+$"
-    ) {
-      const min = Math.max(
-        minLength,
-        1,
-      );
-
-      const max = Math.max(
-        min,
-        Math.min(
-          maxLength,
-          50,
-        ),
-      );
-
-      const length =
-        min === max
-          ? min
-          : faker.number.int({
-              min,
-              max,
-            });
-
-      return faker.string.alpha({
-        length,
-        casing: "mixed",
-      });
-    }
-
-    // -----------------------------------------
-    // Only numbers
-    // -----------------------------------------
-
-    if (
-      pattern === "^[0-9]+$"
-    ) {
-      const min = Math.max(
-        minLength,
-        1,
-      );
-
-      const max = Math.max(
-        min,
-        Math.min(
-          maxLength,
-          50,
-        ),
-      );
-
-      const length =
-        min === max
-          ? min
-          : faker.number.int({
-              min,
-              max,
-            });
-
-      return faker.string.numeric(
-        length,
-      );
-    }
-
-    // -----------------------------------------
-    // Letters + numbers
-    // -----------------------------------------
-
-    if (
-      pattern ===
-      "^[A-Za-z0-9]+$"
-    ) {
-      const min = Math.max(
-        minLength,
-        1,
-      );
-
-      const max = Math.max(
-        min,
-        Math.min(
-          maxLength,
-          50,
-        ),
-      );
-
-      const length =
-        min === max
-          ? min
-          : faker.number.int({
-              min,
-              max,
-            });
-
-      return faker.string.alphanumeric(
-        length,
-      );
     }
   }
 
@@ -326,34 +465,37 @@ const generateStringValue = (
   if (
     value.length > maxLength
   ) {
-    value = value.substring(
-      0,
-      maxLength,
-    );
+    value =
+      value.substring(
+        0,
+        maxLength,
+      );
   }
 
   return value;
 };
 
 // ---------------------------------------------
-// Schema-aware Generator
+// Schema-aware value generator
 // ---------------------------------------------
 
 const generateSchemaValue = (
   definition,
   semanticType,
   faker,
+  country,
+  fieldName,
+  context = {},
 ) => {
   // -------------------------------------------
   // Old format support
   // -------------------------------------------
 
-  if (
-    typeof definition === "string"
-  ) {
+  if (typeof definition === "string") {
     return generateSemanticValue(
       semanticType || definition,
       faker,
+      country,
     );
   }
 
@@ -368,6 +510,7 @@ const generateSchemaValue = (
     return generateSemanticValue(
       semanticType || "text",
       faker,
+      country,
     );
   }
 
@@ -376,9 +519,7 @@ const generateSchemaValue = (
   // -------------------------------------------
 
   if (
-    Array.isArray(
-      definition.enum,
-    )
+    Array.isArray(definition.enum)
   ) {
     return faker.helpers.arrayElement(
       definition.enum,
@@ -396,6 +537,7 @@ const generateSchemaValue = (
       definition,
       semanticType,
       faker,
+      country,
     );
   }
 
@@ -407,10 +549,16 @@ const generateSchemaValue = (
     definition.type === "integer"
   ) {
     const minimum =
-      definition.minimum ?? 0;
+      getMinimum(
+        definition,
+        0,
+      );
 
     const maximum =
-      definition.maximum ?? 1000;
+      getMaximum(
+        definition,
+        1000,
+      );
 
     return faker.number.int({
       min: minimum,
@@ -426,15 +574,92 @@ const generateSchemaValue = (
     definition.type === "number"
   ) {
     const minimum =
-      definition.minimum ?? 0;
+      getMinimum(
+        definition,
+        0,
+      );
 
     const maximum =
-      definition.maximum ?? 1000;
+      getMaximum(
+        definition,
+        1000,
+      );
 
-    return faker.number.float({
+    // -----------------------------------------
+    // Admission Year
+    // -----------------------------------------
+
+    if (
+      fieldName ===
+      "admissionYear"
+    ) {
+      const value =
+        faker.number.int({
+          min: minimum,
+          max: maximum,
+        });
+
+      context.admissionYear =
+        value;
+
+      return value;
+    }
+
+    // -----------------------------------------
+    // Graduation Year
+    // -----------------------------------------
+
+    if (
+      fieldName ===
+      "graduationYear"
+    ) {
+      const admissionYear =
+        context.admissionYear;
+
+      if (
+        typeof admissionYear ===
+        "number"
+      ) {
+        const minimumGraduationYear =
+          admissionYear + 3;
+
+        const maximumGraduationYear =
+          admissionYear + 5;
+
+        const safeMinimum =
+          Math.max(
+            minimumGraduationYear,
+            minimum,
+          );
+
+        const safeMaximum =
+          Math.max(
+            safeMinimum,
+            Math.min(
+              maximumGraduationYear,
+              maximum,
+            ),
+          );
+
+        return faker.number.int({
+          min: safeMinimum,
+          max: safeMaximum,
+        });
+      }
+
+      return faker.number.int({
+        min: minimum,
+        max: maximum,
+      });
+    }
+
+    // -----------------------------------------
+    // Normal Number
+    // -----------------------------------------
+
+    return faker.number.int({
       min: minimum,
       max: maximum,
-      fractionDigits: 2,
     });
   }
 
@@ -455,9 +680,37 @@ const generateSchemaValue = (
   if (
     definition.type === "date"
   ) {
+    // -----------------------------------------
+    // Date of Birth
+    // -----------------------------------------
+
+    if (
+      semanticType ===
+        "dateOfBirth" ||
+      semanticType ===
+        "birthdate" ||
+      semanticType === "dob" ||
+      fieldName ===
+        "dateOfBirth"
+    ) {
+      return faker.date
+        .birthdate({
+          min: 18,
+          max: 30,
+          mode: "age",
+        })
+        .toISOString()
+        .split("T")[0];
+    }
+
+    // -----------------------------------------
+    // Normal Date
+    // -----------------------------------------
+
     return faker.date
       .past()
-      .toISOString();
+      .toISOString()
+      .split("T")[0];
   }
 
   // -------------------------------------------
@@ -467,6 +720,7 @@ const generateSchemaValue = (
   return generateSemanticValue(
     semanticType || "text",
     faker,
+    country,
   );
 };
 
@@ -479,6 +733,8 @@ const generateFromSchema = (
   semanticMap = {},
   parentPath = "",
   faker,
+  country = "Global",
+  context = {},
 ) => {
   const result = {};
 
@@ -490,9 +746,7 @@ const generateFromSchema = (
     // JSON Schema keyword
     // -----------------------------------------
 
-    if (
-      field === "required"
-    ) {
+    if (field === "required") {
       continue;
     }
 
@@ -507,8 +761,10 @@ const generateFromSchema = (
 
     if (
       definition &&
-      typeof definition === "object" &&
-      definition.type === "object" &&
+      typeof definition ===
+        "object" &&
+      definition.type ===
+        "object" &&
       definition.properties
     ) {
       result[field] =
@@ -517,6 +773,8 @@ const generateFromSchema = (
           semanticMap,
           currentPath,
           faker,
+          country,
+          context,
         );
 
       continue;
@@ -528,27 +786,24 @@ const generateFromSchema = (
 
     if (
       definition &&
-      typeof definition === "object" &&
-      definition.type === "array" &&
+      typeof definition ===
+        "object" &&
+      definition.type ===
+        "array" &&
       definition.items
     ) {
-      const itemCount =
-        definition.minItems ??
+      const minItems =
+        definition.minItems ?? 1;
+
+      const maxItems =
         definition.maxItems ??
-        1;
+        minItems;
 
       const count =
-        definition.minItems !==
-          undefined &&
-        definition.maxItems !==
-          undefined
-          ? faker.number.int({
-              min:
-                definition.minItems,
-              max:
-                definition.maxItems,
-            })
-          : itemCount;
+        faker.number.int({
+          min: minItems,
+          max: maxItems,
+        });
 
       result[field] = [];
 
@@ -558,20 +813,24 @@ const generateFromSchema = (
         i++
       ) {
         // -------------------------------------
-        // Nested object inside array
+        // Object inside array
         // -------------------------------------
 
         if (
-          definition.items.type ===
-            "object" &&
-          definition.items.properties
+          definition.items
+            .type === "object" &&
+          definition.items
+            .properties
         ) {
           result[field].push(
             generateFromSchema(
-              definition.items.properties,
+              definition.items
+                .properties,
               semanticMap,
               `${currentPath}[]`,
               faker,
+              country,
+              context,
             ),
           );
 
@@ -583,13 +842,22 @@ const generateFromSchema = (
         // -------------------------------------
 
         const semanticType =
-          semanticMap[currentPath];
+          semanticMap[
+            `${currentPath}[]`
+          ] ||
+          semanticMap[
+            currentPath
+          ] ||
+          semanticMap[field];
 
         result[field].push(
           generateSchemaValue(
             definition.items,
             semanticType,
             faker,
+            country,
+            field,
+            context,
           ),
         );
       }
@@ -610,6 +878,9 @@ const generateFromSchema = (
         definition,
         semanticType,
         faker,
+        country,
+        field,
+        context,
       );
   }
 
@@ -623,17 +894,21 @@ const generateFromSchema = (
 export const generateRecord = (
   schema,
   semanticMap = {},
-  country = "India",
+  country = "Global",
 ) => {
   const fakerInstance =
     getFakerByCountry(
       country,
     );
 
+  const context = {};
+
   return generateFromSchema(
     schema,
     semanticMap,
     "",
     fakerInstance,
+    country,
+    context,
   );
 };
