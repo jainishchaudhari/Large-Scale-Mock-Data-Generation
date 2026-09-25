@@ -52,7 +52,7 @@ app.get("/api/test-gemini", async (req, res) => {
   }
 });
 
-app.use("/api", generatorRoutes);
+app.use("/api/generator", generatorRoutes);
 
 app.use("/api/auth", authRoutes);
 

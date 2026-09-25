@@ -10,7 +10,27 @@ const Results = () => {
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  const result = location.state;
+  // Current selected result
+  const [selectedResult, setSelectedResult] = useState(
+    location.state || null
+  );
+
+  // --------------------------------
+  // Format Date and Time
+  // --------------------------------
+
+  const formatDateTime = (date) => {
+    if (!date) return "N/A";
+
+    return new Date(date).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
   // --------------------------------
   // Fetch Generation History
@@ -22,7 +42,7 @@ const Results = () => {
         const token = localStorage.getItem("token");
 
         const response = await fetch(
-          "http://localhost:5000/api/results",
+          "http://localhost:5000/api/generator/results",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -34,6 +54,17 @@ const Results = () => {
 
         if (data.success) {
           setHistory(data.results);
+
+          // If page was refreshed and there is no navigation state,
+          // show latest saved result
+          if (!location.state && data.results.length > 0) {
+            setSelectedResult(data.results[0]);
+          }
+        } else {
+          console.error(
+            "History fetch failed:",
+            data.message
+          );
         }
       } catch (error) {
         console.error(
@@ -46,51 +77,270 @@ const Results = () => {
     };
 
     fetchHistory();
-  }, []);
+  }, [location.state]);
 
   // --------------------------------
-  // No Data State
+  // Open Previous Result
   // --------------------------------
 
-  if (!result || !result.data) {
+  const handleOpenHistory = (item) => {
+    setSelectedResult({
+      ...item,
+
+      data: Array.isArray(item.data)
+        ? item.data
+        : [],
+
+      originalSchema:
+        item.originalSchema || null,
+
+      normalizedSchema:
+        item.normalizedSchema || null,
+
+      country:
+        item.country || "India",
+
+      batchSize:
+        item.batchSize || 0,
+
+      totalBatches:
+        item.totalBatches || 0,
+    });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  // --------------------------------
+  // No Current Result
+  // --------------------------------
+
+  if (!selectedResult || !selectedResult.data) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-        <main className="mx-auto max-w-3xl px-6 py-20">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-purple-400">
-              <span className="text-2xl">!</span>
-            </div>
+        <main className="mx-auto max-w-7xl px-6 py-10">
 
-            <h1 className="mt-5 text-2xl font-bold">
-              No Generated Data
+          <div className="mb-10">
+            <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
+              GENERATION HISTORY
+            </span>
+
+            <h1 className="mt-4 text-4xl font-bold tracking-tight">
+              Results
             </h1>
 
-            <p className="mt-3 text-slate-400">
-              Generate mock data first to view the results.
+            <p className="mt-3 max-w-2xl text-slate-400">
+              View your previous mock data generations.
             </p>
-
-            <button
-              onClick={() => navigate("/generate")}
-              className="mt-6 rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold transition hover:bg-purple-700"
-            >
-              Go to Generator
-            </button>
           </div>
+
+          {loadingHistory ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
+              <p className="text-sm text-slate-400">
+                Loading generation history...
+              </p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center">
+
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-purple-400">
+                <span className="text-2xl">
+                  !
+                </span>
+              </div>
+
+              <h2 className="mt-5 text-2xl font-bold">
+                No Generation History
+              </h2>
+
+              <p className="mt-3 text-slate-400">
+                Generate mock data first to create a
+                generation history.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/generate")}
+                className="mt-6 rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold transition hover:bg-purple-700"
+              >
+                Go to Generator
+              </button>
+
+            </div>
+          ) : (
+            <section>
+
+              <div className="mb-5">
+                <h2 className="text-xl font-semibold">
+                  Previous Generations
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Select a generation to view its generated data.
+                </p>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+
+                <div className="overflow-x-auto">
+
+                  <table className="w-full text-left">
+
+                    <thead className="border-b border-slate-800 bg-slate-950">
+                      <tr>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Records
+                        </th>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Method
+                        </th>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Generation Time
+                        </th>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Memory
+                        </th>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Date & Time
+                        </th>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Action
+                        </th>
+
+                      </tr>
+                    </thead>
+
+                    <tbody>
+
+                      {history.map((item) => (
+                        <tr
+                          key={item._id}
+                          className="border-b border-slate-800 last:border-b-0"
+                        >
+
+                          <td className="px-6 py-4 text-sm text-white">
+                            {Number(
+                              item.records || 0
+                            ).toLocaleString()}
+                          </td>
+
+                          <td className="px-6 py-4">
+
+                            <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400">
+                              {item.method}
+                            </span>
+
+                          </td>
+
+                          <td className="px-6 py-4 text-sm text-slate-300">
+                            {item.generationTime} ms
+                          </td>
+
+                          <td className="px-6 py-4 text-sm text-slate-300">
+                            {item.memoryUsed} MB
+                          </td>
+
+                          {/* DATE + TIME */}
+                          <td className="px-6 py-4">
+
+                            <div className="flex flex-col">
+
+                              <span className="text-sm font-medium text-white">
+                                {item.createdAt
+                                  ? new Date(
+                                      item.createdAt
+                                    ).toLocaleDateString(
+                                      "en-IN",
+                                      {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      }
+                                    )
+                                  : "N/A"}
+                              </span>
+
+                              <span className="mt-1 text-xs text-slate-500">
+                                {item.createdAt
+                                  ? new Date(
+                                      item.createdAt
+                                    ).toLocaleTimeString(
+                                      "en-IN",
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                      }
+                                    )
+                                  : ""}
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td className="px-6 py-4">
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenHistory(item)
+                              }
+                              className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-purple-700"
+                            >
+                              View Result
+                            </button>
+
+                          </td>
+
+                        </tr>
+                      ))}
+
+                    </tbody>
+
+                  </table>
+
+                </div>
+
+              </div>
+
+            </section>
+          )}
+
         </main>
       </div>
     );
   }
 
-  const data = result.data;
+  const result = selectedResult;
 
-  const jsonData = JSON.stringify(data, null, 2);
+  const data = Array.isArray(result.data)
+    ? result.data
+    : [];
+
+  const jsonData = JSON.stringify(
+    data,
+    null,
+    2
+  );
 
   // --------------------------------
   // Helper: Display Schema Value
   // --------------------------------
 
   const formatSchemaValue = (value) => {
-    if (typeof value === "object" && value !== null) {
+    if (
+      typeof value === "object" &&
+      value !== null
+    ) {
       return JSON.stringify(value);
     }
 
@@ -103,7 +353,9 @@ const Results = () => {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(jsonData);
+      await navigator.clipboard.writeText(
+        jsonData
+      );
 
       setCopied(true);
 
@@ -111,7 +363,10 @@ const Results = () => {
         setCopied(false);
       }, 2000);
     } catch (error) {
-      console.error("Copy failed:", error);
+      console.error(
+        "Copy failed:",
+        error
+      );
     }
   };
 
@@ -120,13 +375,18 @@ const Results = () => {
   // --------------------------------
 
   const handleDownload = () => {
-    const blob = new Blob([jsonData], {
-      type: "application/json",
-    });
+    const blob = new Blob(
+      [jsonData],
+      {
+        type: "application/json",
+      }
+    );
 
-    const url = URL.createObjectURL(blob);
+    const url =
+      URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
+    const link =
+      document.createElement("a");
 
     link.href = url;
 
@@ -147,18 +407,24 @@ const Results = () => {
   // Calculate Batch Information
   // --------------------------------
 
-  const batchSize = Number(result.batchSize || 0);
+  const batchSize = Number(
+    result.batchSize || 0
+  );
 
   const totalBatches =
-    result.method === "Batch" && batchSize > 0
+    result.method === "Batch" &&
+    batchSize > 0
       ? Math.ceil(
-          Number(result.records || data.length) /
-            batchSize
+          Number(
+            result.records ||
+              data.length
+          ) / batchSize
         )
       : 0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+
       <main className="mx-auto max-w-7xl px-6 py-10">
 
         {/* ==============================
@@ -166,7 +432,9 @@ const Results = () => {
         ============================== */}
 
         <div className="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+
           <div>
+
             <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
               GENERATION COMPLETE
             </span>
@@ -180,14 +448,32 @@ const Results = () => {
               generated and is ready for inspection or
               export.
             </p>
+
+            {/* DATE + TIME OF CURRENT RESULT */}
+            <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+              <span className="text-slate-600">
+                Generated on
+              </span>
+
+              <span className="font-medium text-slate-300">
+                {formatDateTime(
+                  result.createdAt
+                )}
+              </span>
+            </div>
+
           </div>
 
           <button
-            onClick={() => navigate("/generate")}
+            type="button"
+            onClick={() =>
+              navigate("/generate")
+            }
             className="rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-purple-500/50 hover:text-white"
           >
             ← Generate Again
           </button>
+
         </div>
 
         {/* ==============================
@@ -202,27 +488,27 @@ const Results = () => {
           }`}
         >
 
-          {/* Records */}
-
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+
             <p className="text-sm text-slate-400">
               Records Generated
             </p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
               {(
-                result.records || data.length
+                result.records ||
+                data.length
               ).toLocaleString()}
             </h2>
 
             <p className="mt-2 text-xs text-slate-500">
               Total mock records
             </p>
+
           </div>
 
-          {/* Method */}
-
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+
             <p className="text-sm text-slate-400">
               Generation Method
             </p>
@@ -234,12 +520,12 @@ const Results = () => {
             <p className="mt-2 text-xs text-slate-500">
               Selected generation strategy
             </p>
-          </div>
 
-          {/* Batch Size */}
+          </div>
 
           {result.method === "Batch" && (
             <div className="rounded-2xl border border-purple-500/20 bg-slate-900 p-6">
+
               <p className="text-sm text-slate-400">
                 Mini-Batch Size
               </p>
@@ -251,13 +537,13 @@ const Results = () => {
               <p className="mt-2 text-xs text-slate-500">
                 Records per batch
               </p>
+
             </div>
           )}
 
-          {/* Total Batches */}
-
           {result.method === "Batch" && (
             <div className="rounded-2xl border border-purple-500/20 bg-slate-900 p-6">
+
               <p className="text-sm text-slate-400">
                 Total Batches
               </p>
@@ -269,40 +555,42 @@ const Results = () => {
               <p className="mt-2 text-xs text-slate-500">
                 Mini-batches generated
               </p>
+
             </div>
           )}
 
-          {/* Time */}
-
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+
             <p className="text-sm text-slate-400">
               Generation Time
             </p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
-              {result.generationTime || "N/A"}
+              {result.generationTime || "N/A"} ms
             </h2>
 
             <p className="mt-2 text-xs text-slate-500">
               Time required to generate data
             </p>
+
           </div>
 
-          {/* Memory */}
-
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+
             <p className="text-sm text-slate-400">
               Memory Delta
             </p>
 
             <h2 className="mt-3 text-3xl font-bold text-white">
-              {result.memoryUsed || "N/A"}
+              {result.memoryUsed || "N/A"} MB
             </h2>
 
             <p className="mt-2 text-xs text-slate-500">
               Observed RSS memory change
             </p>
+
           </div>
+
         </section>
 
         {/* ==============================
@@ -315,10 +603,13 @@ const Results = () => {
             <div className="flex gap-4">
 
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
-                <span className="text-lg">⚙</span>
+                <span className="text-lg">
+                  ⚙
+                </span>
               </div>
 
               <div>
+
                 <h2 className="text-lg font-semibold text-white">
                   Mini-Batch Generation
                 </h2>
@@ -332,18 +623,22 @@ const Results = () => {
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
 
                   <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3">
+
                     <p className="text-xs text-slate-500">
                       Total Records
                     </p>
 
                     <p className="mt-1 font-semibold text-white">
                       {(
-                        result.records || data.length
+                        result.records ||
+                        data.length
                       ).toLocaleString()}
                     </p>
+
                   </div>
 
                   <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3">
+
                     <p className="text-xs text-slate-500">
                       Batch Size
                     </p>
@@ -351,9 +646,11 @@ const Results = () => {
                     <p className="mt-1 font-semibold text-purple-400">
                       {batchSize.toLocaleString()}
                     </p>
+
                   </div>
 
                   <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3">
+
                     <p className="text-xs text-slate-500">
                       Total Batches
                     </p>
@@ -361,11 +658,15 @@ const Results = () => {
                     <p className="mt-1 font-semibold text-purple-400">
                       {totalBatches.toLocaleString()}
                     </p>
+
                   </div>
 
                 </div>
+
               </div>
+
             </div>
+
           </section>
         )}
 
@@ -404,6 +705,7 @@ const Results = () => {
                 <table className="w-full text-left text-sm">
 
                   <thead>
+
                     <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
 
                       <th className="px-4 py-4">
@@ -419,48 +721,57 @@ const Results = () => {
                       </th>
 
                     </tr>
+
                   </thead>
 
                   <tbody>
 
                     {Object.entries(
                       result.originalSchema
-                    ).map(([field, type]) => (
-                      <tr
-                        key={field}
-                        className="border-b border-slate-800/70"
-                      >
+                    ).map(
+                      ([field, type]) => (
+                        <tr
+                          key={field}
+                          className="border-b border-slate-800/70"
+                        >
 
-                        <td className="px-4 py-4 font-medium text-white">
-                          {field}
-                        </td>
+                          <td className="px-4 py-4 font-medium text-white">
+                            {field}
+                          </td>
 
-                        <td className="px-4 py-4">
+                          <td className="px-4 py-4">
 
-                          <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
-                            {formatSchemaValue(type)}
-                          </span>
+                            <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
+                              {formatSchemaValue(
+                                type
+                              )}
+                            </span>
 
-                        </td>
+                          </td>
 
-                        <td className="px-4 py-4">
+                          <td className="px-4 py-4">
 
-                          <span className="rounded-md bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400">
-                            {formatSchemaValue(
-                              result.normalizedSchema[
-                                field
-                              ] || "text"
-                            )}
-                          </span>
+                            <span className="rounded-md bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400">
+                              {formatSchemaValue(
+                                result
+                                  .normalizedSchema[
+                                  field
+                                ] || "text"
+                              )}
+                            </span>
 
-                        </td>
+                          </td>
 
-                      </tr>
-                    ))}
+                        </tr>
+                      )
+                    )}
 
                   </tbody>
+
                 </table>
+
               </div>
+
             </section>
           )}
 
@@ -487,13 +798,17 @@ const Results = () => {
             <div className="flex gap-3">
 
               <button
+                type="button"
                 onClick={handleCopy}
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-purple-500/50 hover:text-white"
               >
-                {copied ? "Copied!" : "Copy JSON"}
+                {copied
+                  ? "Copied!"
+                  : "Copy JSON"}
               </button>
 
               <button
+                type="button"
                 onClick={handleDownload}
                 className="rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700"
               >
@@ -501,6 +816,7 @@ const Results = () => {
               </button>
 
             </div>
+
           </div>
 
           <div className="overflow-hidden p-6">
@@ -545,7 +861,9 @@ const Results = () => {
               />
 
             </div>
+
           </div>
+
         </section>
 
         {/* ==============================
@@ -589,7 +907,9 @@ const Results = () => {
 
                 <tbody>
 
-                  {Object.entries(result.schema).map(
+                  {Object.entries(
+                    result.schema
+                  ).map(
                     ([field, type]) => (
                       <tr
                         key={field}
@@ -603,7 +923,9 @@ const Results = () => {
                         <td className="px-4 py-4">
 
                           <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300">
-                            {formatSchemaValue(type)}
+                            {formatSchemaValue(
+                              type
+                            )}
                           </span>
 
                         </td>
@@ -613,8 +935,11 @@ const Results = () => {
                   )}
 
                 </tbody>
+
               </table>
+
             </div>
+
           </section>
         )}
 
@@ -685,7 +1010,11 @@ const Results = () => {
                       </th>
 
                       <th className="px-6 py-4 text-sm font-semibold text-slate-300">
-                        Created
+                        Date & Time
+                      </th>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Action
                       </th>
 
                     </tr>
@@ -694,46 +1023,102 @@ const Results = () => {
 
                   <tbody>
 
-                    {history.map((item) => (
-                      <tr
-                        key={item._id}
-                        className="border-b border-slate-800 last:border-b-0"
-                      >
+                    {history.map(
+                      (item) => (
+                        <tr
+                          key={item._id}
+                          className="border-b border-slate-800 last:border-b-0"
+                        >
 
-                        <td className="px-6 py-4 text-sm text-white">
-                          {item.records.toLocaleString()}
-                        </td>
+                          <td className="px-6 py-4 text-sm text-white">
+                            {Number(
+                              item.records || 0
+                            ).toLocaleString()}
+                          </td>
 
-                        <td className="px-6 py-4">
+                          <td className="px-6 py-4">
 
-                          <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400">
-                            {item.method}
-                          </span>
+                            <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400">
+                              {item.method}
+                            </span>
 
-                        </td>
+                          </td>
 
-                        <td className="px-6 py-4 text-sm text-slate-300">
-                          {item.generationTime} ms
-                        </td>
+                          <td className="px-6 py-4 text-sm text-slate-300">
+                            {item.generationTime} ms
+                          </td>
 
-                        <td className="px-6 py-4 text-sm text-slate-300">
-                          {item.memoryUsed} MB
-                        </td>
+                          <td className="px-6 py-4 text-sm text-slate-300">
+                            {item.memoryUsed} MB
+                          </td>
 
-                        <td className="px-6 py-4 text-sm text-slate-400">
-                          {new Date(
-                            item.createdAt
-                          ).toLocaleString()}
-                        </td>
+                          {/* DATE + TIME */}
+                          <td className="px-6 py-4">
 
-                      </tr>
-                    ))}
+                            <div className="flex flex-col">
+
+                              <span className="text-sm font-medium text-white">
+                                {item.createdAt
+                                  ? new Date(
+                                      item.createdAt
+                                    ).toLocaleDateString(
+                                      "en-IN",
+                                      {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      }
+                                    )
+                                  : "N/A"}
+                              </span>
+
+                              <span className="mt-1 text-xs text-slate-500">
+                                {item.createdAt
+                                  ? new Date(
+                                      item.createdAt
+                                    ).toLocaleTimeString(
+                                      "en-IN",
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                      }
+                                    )
+                                  : ""}
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td className="px-6 py-4">
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenHistory(item)
+                              }
+                              className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-xs font-semibold text-purple-400 transition hover:bg-purple-500/20"
+                            >
+                              View Result
+                            </button>
+
+                          </td>
+
+                        </tr>
+                      )
+                    )}
 
                   </tbody>
+
                 </table>
+
               </div>
+
             </div>
+
           )}
+
         </section>
 
         {/* ==============================
@@ -761,7 +1146,8 @@ const Results = () => {
                 {result.method === "Streaming"
                   ? "The dataset was generated progressively using the streaming approach. Records are produced and transmitted incrementally rather than being returned as one large in-memory array."
                   : `The dataset was generated using the mini-batch approach. ${(
-                      result.records || data.length
+                      result.records ||
+                      data.length
                     ).toLocaleString()} records were divided into batches of ${batchSize.toLocaleString()} records and processed sequentially.`}
 
               </p>
@@ -776,10 +1162,13 @@ const Results = () => {
               </p>
 
             </div>
+
           </div>
+
         </section>
 
       </main>
+
     </div>
   );
 };
