@@ -2,6 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 
+import {
+  clearGeneratedData,
+  saveBatch,
+} from "../utils/dataStorage";
+
 // ======================================================
 // Real-World Schema Templates
 // ======================================================
@@ -939,6 +944,10 @@ const CUSTOM_SCHEMA = {
   country: "string",
 };
 
+// ======================================================
+// Generate Component
+// ======================================================
+
 const Generate = () => {
   const navigate = useNavigate();
 
@@ -948,7 +957,6 @@ const Generate = () => {
 
   const [country, setCountry] = useState("Global");
 
-  // Template selection
   const [selectedTemplate, setSelectedTemplate] = useState("Custom");
 
   const [schemaText, setSchemaText] = useState(
@@ -968,7 +976,6 @@ const Generate = () => {
 
     if (templateName === "Custom") {
       setSchemaText(JSON.stringify(CUSTOM_SCHEMA, null, 2));
-
       return;
     }
 
@@ -988,10 +995,11 @@ const Generate = () => {
       const parsed = JSON.parse(schemaText);
 
       setSchemaText(JSON.stringify(parsed, null, 2));
-
       setError("");
     } catch (err) {
-      setError("Cannot format invalid JSON. Please fix the JSON syntax first.");
+      setError(
+        "Cannot format invalid JSON. Please fix the JSON syntax first.",
+      );
     }
   };
 
@@ -1014,17 +1022,15 @@ const Generate = () => {
       return;
     }
 
-    if (totalRecords > 10000) {
-      setError("Maximum 10,000 records are allowed for testing.");
-      return;
-    }
-
     // ==================================================
     // Batch Size Validation
     // ==================================================
 
     if (method === "Batch") {
-      if (!Number.isInteger(selectedBatchSize) || selectedBatchSize < 1) {
+      if (
+        !Number.isInteger(selectedBatchSize) ||
+        selectedBatchSize < 1
+      ) {
         setError("Please enter a valid batch size.");
         return;
       }
@@ -1050,7 +1056,11 @@ const Generate = () => {
       return;
     }
 
-    if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    if (
+      !schema ||
+      typeof schema !== "object" ||
+      Array.isArray(schema)
+    ) {
       setError("Schema must be a valid JSON object.");
       return;
     }
@@ -1069,6 +1079,14 @@ const Generate = () => {
     try {
       setLoading(true);
 
+      // --------------------------------------------------
+      // Clear previous temporary browser dataset
+      // --------------------------------------------------
+
+      await clearGeneratedData();
+
+      console.log("Previous temporary dataset cleared.");
+
       const token = localStorage.getItem("token");
 
       const response = await fetch(
@@ -1085,9 +1103,10 @@ const Generate = () => {
             schema,
             records: totalRecords,
             method,
-
-            batchSize: method === "Batch" ? selectedBatchSize : null,
-
+            batchSize:
+              method === "Batch"
+                ? selectedBatchSize
+                : null,
             country,
           }),
         },
@@ -1121,13 +1140,9 @@ const Generate = () => {
         }
 
         const reader = response.body.getReader();
-
         const decoder = new TextDecoder();
 
         let buffer = "";
-
-        const generatedData = [];
-
         let completeMetadata = null;
 
         while (true) {
@@ -1153,50 +1168,115 @@ const Generate = () => {
             try {
               const item = JSON.parse(line);
 
-              if (item.type === "batch") {
-                console.log(`Batch ${item.batchNumber} received`);
-                console.log(`Records in batch: ${item.batchSize}`);
-                console.log(`Total generated: ${item.totalGenerated}`);
+              // ------------------------------------------------
+              // Batch received
+              // ------------------------------------------------
 
-                generatedData.push(...item.data);
+              if (item.type === "batch") {
+                console.log(
+                  `Batch ${item.batchNumber} received`,
+                );
+
+                console.log(
+                  `Records in batch: ${item.batchSize}`,
+                );
+
+                console.log(
+                  `Total generated: ${item.totalGenerated}`,
+                );
+
+                // ----------------------------------------------
+                // Save batch temporarily in IndexedDB
+                // ----------------------------------------------
+
+                await saveBatch(
+                  item.batchNumber,
+                  item.data,
+                );
+
+                console.log(
+                  `Batch ${item.batchNumber} saved to IndexedDB.`,
+                );
               }
 
+              // ------------------------------------------------
+              // Generation complete
+              // ------------------------------------------------
+
               if (item.type === "complete") {
-                console.log("All batches received.");
+                console.log(
+                  "All batches received.",
+                );
 
                 completeMetadata = item;
               }
             } catch (parseError) {
-              console.error("Invalid NDJSON line:", line);
+              console.error(
+                "Invalid NDJSON line:",
+                line,
+              );
             }
           }
         }
+
+        // ==================================================
+        // Process remaining buffer
+        // ==================================================
 
         if (buffer.trim()) {
           try {
             const item = JSON.parse(buffer);
 
             if (item.type === "batch") {
-              generatedData.push(...item.data);
+              console.log(
+                `Final batch ${item.batchNumber} received.`,
+              );
+
+              await saveBatch(
+                item.batchNumber,
+                item.data,
+              );
             }
 
             if (item.type === "complete") {
               completeMetadata = item;
             }
           } catch (parseError) {
-            console.error("Invalid final streaming data:", buffer);
+            console.error(
+              "Invalid final streaming data:",
+              buffer,
+            );
           }
         }
 
+        // ==================================================
+        // Validate completion metadata
+        // ==================================================
+
         if (!completeMetadata) {
-          throw new Error("Generation completed without final metadata.");
+          throw new Error(
+            "Generation completed without final metadata.",
+          );
         }
+
+        console.log(
+          "Generation completed successfully.",
+        );
+
+        // ==================================================
+        // Navigate to Results
+        // ==================================================
 
         navigate("/results", {
           state: {
-            data: generatedData,
+            // IMPORTANT:
+            // Do NOT send the generated dataset
+            // through React Router state.
+            data: [],
 
-            records: completeMetadata.records || generatedData.length,
+            records:
+              completeMetadata.records ||
+              totalRecords,
 
             method: "Batch",
 
@@ -1204,28 +1284,41 @@ const Generate = () => {
 
             country,
 
-            batchSize: completeMetadata.batchSize || selectedBatchSize,
+            batchSize:
+              completeMetadata.batchSize ||
+              selectedBatchSize,
 
-            totalBatches: completeMetadata.totalBatches,
+            totalBatches:
+              completeMetadata.totalBatches,
 
-            originalSchema: completeMetadata.originalSchema,
+            originalSchema:
+              completeMetadata.originalSchema,
 
-            normalizedSchema: completeMetadata.normalizedSchema,
+            normalizedSchema:
+              completeMetadata.normalizedSchema,
 
-            generationTime: completeMetadata.generationTime,
+            generationTime:
+              completeMetadata.generationTime,
 
-            memoryUsed: completeMetadata.memoryUsed,
+            memoryUsed:
+              completeMetadata.memoryUsed,
 
             id: completeMetadata.id,
+
+            dataStored:
+              completeMetadata.dataStored,
+
+            dataReturned:
+              completeMetadata.dataReturned,
           },
         });
 
         return;
       }
 
-      // ==================================================
+      // ======================================================
       // STREAMING GENERATION
-      // ==================================================
+      // ======================================================
 
       if (method === "Streaming") {
         if (!response.body) {
@@ -1235,7 +1328,6 @@ const Generate = () => {
         }
 
         const reader = response.body.getReader();
-
         const decoder = new TextDecoder();
 
         let buffer = "";
@@ -1275,10 +1367,17 @@ const Generate = () => {
                 metadata = item;
               }
             } catch (parseError) {
-              console.error("Invalid streaming JSON:", line);
+              console.error(
+                "Invalid streaming JSON:",
+                line,
+              );
             }
           }
         }
+
+        // ==================================================
+        // Process remaining buffer
+        // ==================================================
 
         if (buffer.trim()) {
           try {
@@ -1292,15 +1391,24 @@ const Generate = () => {
               metadata = item;
             }
           } catch (parseError) {
-            console.error("Invalid final streaming data:", buffer);
+            console.error(
+              "Invalid final streaming data:",
+              buffer,
+            );
           }
         }
+
+        // ==================================================
+        // Navigate to Results
+        // ==================================================
 
         navigate("/results", {
           state: {
             data: generatedData,
 
-            records: totalRecords || generatedData.length,
+            records:
+              totalRecords ||
+              generatedData.length,
 
             method: "Streaming",
 
@@ -1308,20 +1416,28 @@ const Generate = () => {
 
             country,
 
-            originalSchema: metadata?.originalSchema,
+            originalSchema:
+              metadata?.originalSchema,
 
-            normalizedSchema: metadata?.normalizedSchema,
+            normalizedSchema:
+              metadata?.normalizedSchema,
 
-            generationTime: metadata ? `${metadata.generationTime} ms` : null,
+            generationTime: metadata
+              ? `${metadata.generationTime} ms`
+              : null,
 
-            memoryUsed: metadata ? `${metadata.memoryUsed} MB` : null,
+            memoryUsed: metadata
+              ? `${metadata.memoryUsed} MB`
+              : null,
           },
         });
 
         return;
       }
 
-      throw new Error("Invalid generation method.");
+      throw new Error(
+        "Invalid generation method.",
+      );
     } catch (err) {
       console.error(err);
 
@@ -1341,6 +1457,7 @@ const Generate = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <main className="mx-auto max-w-6xl px-6 py-10">
+
         {/* Header */}
 
         <div className="mb-10">
@@ -1353,8 +1470,9 @@ const Generate = () => {
           </h1>
 
           <p className="mt-3 max-w-2xl text-slate-400">
-            Define your schema, select the dataset size and generation strategy,
-            then generate realistic JSON mock data.
+            Define your schema, select the dataset size and
+            generation strategy, then generate realistic JSON
+            mock data.
           </p>
         </div>
 
@@ -1367,20 +1485,27 @@ const Generate = () => {
         )}
 
         <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
+
           {/* Schema Editor */}
 
           <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+
             <div className="border-b border-slate-800 px-6 py-5">
               <div className="flex items-center justify-between gap-4">
+
                 <div>
-                  <h2 className="text-xl font-semibold">Schema Definition</h2>
+                  <h2 className="text-xl font-semibold">
+                    Schema Definition
+                  </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Select a real-world template or define your own JSON schema.
+                    Select a real-world template or define
+                    your own JSON schema.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
+
                   <button
                     onClick={formatJson}
                     className="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:border-purple-500 hover:text-purple-400"
@@ -1391,6 +1516,7 @@ const Generate = () => {
                   <span className="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
                     JSON
                   </span>
+
                 </div>
               </div>
             </div>
@@ -1398,45 +1524,67 @@ const Generate = () => {
             {/* Template Selector */}
 
             <div className="border-b border-slate-800 bg-slate-950/40 px-6 py-5">
+
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
                 <div>
                   <label className="text-sm font-medium text-slate-300">
                     Schema Template
                   </label>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Use a realistic domain-specific schema with constraints and
-                    nested structures.
+                    Use a realistic domain-specific schema
+                    with constraints and nested structures.
                   </p>
                 </div>
 
                 <select
                   value={selectedTemplate}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  onChange={(e) =>
+                    handleTemplateChange(e.target.value)
+                  }
                   className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white outline-none transition focus:border-purple-500 sm:w-64"
                 >
-                  <option value="Custom">Custom JSON Schema</option>
+                  <option value="Custom">
+                    Custom JSON Schema
+                  </option>
 
-                  <option value="School">🏫 School</option>
+                  <option value="School">
+                    🏫 School
+                  </option>
 
-                  <option value="College">🎓 College / University</option>
+                  <option value="College">
+                    🎓 College / University
+                  </option>
 
-                  <option value="Banking">🏦 Banking</option>
+                  <option value="Banking">
+                    🏦 Banking
+                  </option>
 
-                  <option value="Hospital">🏥 Hospital / Patient</option>
+                  <option value="Hospital">
+                    🏥 Hospital / Patient
+                  </option>
 
-                  <option value="E-commerce">🛒 E-commerce Order</option>
+                  <option value="E-commerce">
+                    🛒 E-commerce Order
+                  </option>
 
-                  <option value="Employee">👨‍💼 Employee / HR</option>
+                  <option value="Employee">
+                    👨‍💼 Employee / HR
+                  </option>
 
-                  <option value="Customer">👤 Customer / CRM</option>
+                  <option value="Customer">
+                    👤 Customer / CRM
+                  </option>
                 </select>
+
               </div>
             </div>
 
             {/* Editor */}
 
             <div className="overflow-hidden">
+
               <Editor
                 height="420px"
                 language="json"
@@ -1445,9 +1593,6 @@ const Generate = () => {
                 onChange={(value) => {
                   setSchemaText(value || "");
                   setError("");
-
-                  // Once user manually edits the schema,
-                  // treat it as custom schema.
                   setSelectedTemplate("Custom");
                 }}
                 options={{
@@ -1485,11 +1630,13 @@ const Generate = () => {
                   suggestOnTriggerCharacters: true,
                 }}
               />
+
             </div>
 
             {/* Schema Information */}
 
             <div className="border-t border-slate-800 bg-slate-950/50 px-6 py-4">
+
               <p className="text-xs leading-5 text-slate-500">
                 Example:{" "}
                 <span className="text-slate-400">
@@ -1498,21 +1645,28 @@ const Generate = () => {
               </p>
 
               <p className="mt-1 text-xs text-slate-600">
-                Supported types: name, email, number, date, city, country,
-                phone, company, address, boolean, nested objects and arrays.
+                Supported types: name, email, number, date,
+                city, country, phone, company, address,
+                boolean, nested objects and arrays.
               </p>
 
               <p className="mt-2 text-xs text-slate-600">
-                Templates support constraints such as enum, min/max,
-                minLength/maxLength, pattern and minItems/maxItems.
+                Templates support constraints such as enum,
+                min/max, minLength/maxLength, pattern and
+                minItems/maxItems.
               </p>
+
             </div>
+
           </section>
 
           {/* Generation Settings */}
 
           <section className="h-fit rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-semibold">Generation Settings</h2>
+
+            <h2 className="text-xl font-semibold">
+              Generation Settings
+            </h2>
 
             <p className="mt-1 text-sm text-slate-500">
               Configure the benchmark workload.
@@ -1521,6 +1675,7 @@ const Generate = () => {
             {/* Records */}
 
             <div className="mt-7">
+
               <label className="text-sm font-medium text-slate-300">
                 Number of Records
               </label>
@@ -1528,60 +1683,83 @@ const Generate = () => {
               <input
                 type="number"
                 min="1"
-                max="10000"
                 value={records}
-                onChange={(e) => setRecords(e.target.value)}
+                onChange={(e) =>
+                  setRecords(e.target.value)
+                }
                 className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
               />
 
               <p className="mt-2 text-xs text-slate-500">
-                Maximum 10,000 records for testing.
+                Enter the number of records required for
+                the benchmark.
               </p>
+
             </div>
 
             {/* Country */}
 
             <div className="mt-7">
+
               <label className="text-sm font-medium text-slate-300">
                 Country / Data Locale
               </label>
 
               <select
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
+                onChange={(e) =>
+                  setCountry(e.target.value)
+                }
                 className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
               >
-                <option value="Global">🌍 Global Data</option>
+                <option value="Global">
+                  🌍 Global Data
+                </option>
 
-                <option value="India">🇮🇳 India</option>
+                <option value="India">
+                  🇮🇳 India
+                </option>
 
-                <option value="United States">🇺🇸 United States</option>
+                <option value="United States">
+                  🇺🇸 United States
+                </option>
 
-                <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                <option value="United Kingdom">
+                  🇬🇧 United Kingdom
+                </option>
 
-                <option value="Germany">🇩🇪 Germany</option>
+                <option value="Germany">
+                  🇩🇪 Germany
+                </option>
 
-                <option value="Canada">🇨🇦 Canada</option>
+                <option value="Canada">
+                  🇨🇦 Canada
+                </option>
               </select>
 
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Select a country for localized data or choose Global Data for
-                worldwide data.
+                Select a country for localized data or choose
+                Global Data for worldwide data.
               </p>
+
             </div>
 
             {/* Method */}
 
             <div className="mt-7">
+
               <label className="text-sm font-medium text-slate-300">
                 Generation Method
               </label>
 
               <div className="mt-3 space-y-3">
+
                 {/* Batch */}
 
                 <button
-                  onClick={() => setMethod("Batch")}
+                  onClick={() =>
+                    setMethod("Batch")
+                  }
                   className={`w-full rounded-xl border p-4 text-left transition ${
                     method === "Batch"
                       ? "border-purple-500 bg-purple-500/10"
@@ -1589,23 +1767,33 @@ const Generate = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">Batch</span>
+
+                    <span className="font-semibold">
+                      Batch
+                    </span>
 
                     {method === "Batch" && (
-                      <span className="text-xs text-purple-400">Selected</span>
+                      <span className="text-xs text-purple-400">
+                        Selected
+                      </span>
                     )}
+
                   </div>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Generates and delivers records progressively in user-defined
+                    Generates and delivers records
+                    progressively in user-defined
                     mini-batches.
                   </p>
+
                 </button>
 
                 {/* Streaming */}
 
                 <button
-                  onClick={() => setMethod("Streaming")}
+                  onClick={() =>
+                    setMethod("Streaming")
+                  }
                   className={`w-full rounded-xl border p-4 text-left transition ${
                     method === "Streaming"
                       ? "border-purple-500 bg-purple-500/10"
@@ -1613,17 +1801,26 @@ const Generate = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">Streaming</span>
+
+                    <span className="font-semibold">
+                      Streaming
+                    </span>
 
                     {method === "Streaming" && (
-                      <span className="text-xs text-purple-400">Selected</span>
+                      <span className="text-xs text-purple-400">
+                        Selected
+                      </span>
                     )}
+
                   </div>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Generates records progressively using a continuous stream.
+                    Generates records progressively using
+                    a continuous stream.
                   </p>
+
                 </button>
+
               </div>
             </div>
 
@@ -1631,6 +1828,7 @@ const Generate = () => {
 
             {method === "Batch" && (
               <div className="mt-7">
+
                 <label className="text-sm font-medium text-slate-300">
                   Mini-Batch Size
                 </label>
@@ -1640,25 +1838,34 @@ const Generate = () => {
                   min="1"
                   max={records}
                   value={batchSize}
-                  onChange={(e) => setBatchSize(e.target.value)}
+                  onChange={(e) =>
+                    setBatchSize(e.target.value)
+                  }
                   className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
                 />
 
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Number of records generated and delivered together in each
-                  batch.
+                  Number of records generated and delivered
+                  together in each batch.
                 </p>
 
                 <div className="mt-3 rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-2.5">
+
                   <p className="text-xs text-purple-300">
-                    {records} records with batch size {batchSize || 0}
+                    {records} records with batch size{" "}
+                    {batchSize || 0}
                     {" → approximately "}
                     {batchSize > 0
-                      ? Math.ceil(Number(records) / Number(batchSize))
+                      ? Math.ceil(
+                          Number(records) /
+                            Number(batchSize),
+                        )
                       : 0}
                     {" batches will be delivered progressively."}
                   </p>
+
                 </div>
+
               </div>
             )}
 
@@ -1675,45 +1882,62 @@ const Generate = () => {
                   : "Streaming Data..."
                 : "Generate Mock Data"}
             </button>
+
           </section>
         </div>
 
         {/* Information */}
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+
           <div className="flex gap-4">
+
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
-              <span className="text-lg">i</span>
+              <span className="text-lg">
+                i
+              </span>
             </div>
 
             <div>
+
               <h3 className="font-semibold text-white">
                 Real-World Schema Templates
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                MockGen provides domain-specific schemas for school, college,
-                banking, healthcare, e-commerce, employee management and CRM
-                applications. These schemas contain nested objects, arrays,
-                categorical values and validation constraints.
+                MockGen provides domain-specific schemas
+                for school, college, banking, healthcare,
+                e-commerce, employee management and CRM
+                applications. These schemas contain nested
+                objects, arrays, categorical values and
+                validation constraints.
               </p>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                The selected schema is passed to the same AI-assisted and
-                rule-based generation pipeline. The generator interprets the
-                field semantics and preserves the defined constraints while
-                generating realistic mock records.
+                The selected schema is passed to the same
+                AI-assisted and rule-based generation
+                pipeline. The generator interprets the field
+                semantics and preserves the defined
+                constraints while generating realistic mock
+                records.
               </p>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                In Batch mode, records are generated in configurable
-                mini-batches and each completed batch is sent to the client
-                immediately. This allows the received batch to be processed
-                while the remaining batches are still being generated.
+                In Batch mode, records are generated in
+                configurable mini-batches and each completed
+                batch is sent to the client immediately. The
+                received batch is temporarily stored in
+                browser IndexedDB so that very large datasets
+                can be browsed later without storing the
+                dataset in MongoDB.
               </p>
+
             </div>
+
           </div>
+
         </section>
+
       </main>
     </div>
   );

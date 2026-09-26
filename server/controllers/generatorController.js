@@ -220,8 +220,7 @@ export const generateData = async (
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Valid schema is required",
+        message: "Valid schema is required",
       });
     }
 
@@ -242,16 +241,6 @@ export const generateData = async (
         success: false,
         message:
           "Records must be a positive integer",
-      });
-    }
-
-    if (
-      totalRecords > 10000
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Maximum 10,000 records allowed for testing",
       });
     }
 
@@ -297,10 +286,6 @@ export const generateData = async (
     let normalizedSchema;
 
     try {
-      // ---------------------------------------
-      // Try Gemini AI
-      // ---------------------------------------
-
       normalizedSchema =
         await interpretSchema(schema);
 
@@ -308,10 +293,6 @@ export const generateData = async (
         "AI semantic map:",
         normalizedSchema
       );
-
-      // ---------------------------------------
-      // Validate AI output
-      // ---------------------------------------
 
       if (
         !isValidSemanticMap(
@@ -331,12 +312,7 @@ export const generateData = async (
           normalizedSchema
         );
       }
-
     } catch (error) {
-      // ---------------------------------------
-      // Detect Gemini rate limit
-      // ---------------------------------------
-
       const errorMessage =
         error?.message || "";
 
@@ -354,29 +330,15 @@ export const generateData = async (
           .toLowerCase()
           .includes("limit exceeded");
 
-      // ---------------------------------------
-      // Rate limit message
-      // ---------------------------------------
-
       if (isRateLimit) {
         console.warn(
           "⚠️ AI limit exceeded. Using rule-based fallback."
         );
-      }
-
-      // ---------------------------------------
-      // Other AI error
-      // ---------------------------------------
-
-      else {
+      } else {
         console.warn(
           "⚠️ AI unavailable. Using rule-based fallback."
         );
       }
-
-      // ---------------------------------------
-      // Rule-based fallback
-      // ---------------------------------------
 
       normalizedSchema =
         fallbackSchema(schema);
@@ -435,7 +397,7 @@ export const generateData = async (
 
       res.setHeader(
         "Cache-Control",
-        "no-cache"
+        "no-cache, no-transform"
       );
 
       res.setHeader(
@@ -443,21 +405,32 @@ export const generateData = async (
         "keep-alive"
       );
 
-      let clientDisconnected =
-        false;
+      // ---------------------------------------
+      // Large datasets should not send the
+      // complete generated data to browser.
+      //
+      // <= 10K:
+      //     send batch data to frontend
+      //
+      // > 10K:
+      //     send progress + metadata only
+      // ---------------------------------------
+
+      const sendBatchData = true;
+
+      let clientDisconnected = false;
 
       // ---------------------------------------
       // Detect client disconnect
       // ---------------------------------------
 
-      req.on(
+      res.on(
         "close",
         () => {
-          clientDisconnected =
-            true;
+          clientDisconnected = true;
 
           console.log(
-            "Client disconnected during batch generation."
+            "Client connection closed."
           );
         }
       );
@@ -496,19 +469,37 @@ export const generateData = async (
                 totalRecords:
                   batch.totalRecords,
 
-                data:
-                  batch.data,
+                data: sendBatchData
+                  ? batch.data
+                  : [],
               };
 
-              res.write(
-                JSON.stringify(
-                  batchResponse
-                ) + "\n"
-              );
+              const canContinue =
+                res.write(
+                  JSON.stringify(
+                    batchResponse
+                  ) + "\n"
+                );
 
               console.log(
-                `Batch ${batch.batchNumber} sent to client`
+                `Batch ${batch.batchNumber} sent to client | Records: ${batch.batchSize} | Total: ${batch.totalGenerated}`
               );
+
+              // ---------------------------------
+              // If Node response buffer is full,
+              // wait for drain before continuing.
+              // ---------------------------------
+
+              if (!canContinue) {
+                await new Promise(
+                  (resolve) => {
+                    res.once(
+                      "drain",
+                      resolve
+                    );
+                  }
+                );
+              }
             }
           );
 
@@ -519,12 +510,26 @@ export const generateData = async (
         if (
           clientDisconnected
         ) {
+          console.log(
+            "Stopping response because client disconnected."
+          );
+
           return;
         }
 
         // -------------------------------------
-        // Save generation result to MongoDB
+        // MongoDB storage
         // -------------------------------------
+
+        // MongoDB BSON has a 16 MB document limit.
+        //
+        // For small runs we store generated data.
+        // For large benchmark runs we store only
+        // metadata because the generated data can
+        // be much larger than MongoDB's document limit.
+
+        const shouldStoreData =
+          totalRecords <= 10000;
 
         const generation =
           await Generation.create({
@@ -550,47 +555,71 @@ export const generateData = async (
               ),
 
             data:
-              result.data,
+              shouldStoreData
+                ? result.data
+                : [],
           });
 
+        console.log(
+          "Generation metadata saved to MongoDB."
+        );
+
         // -------------------------------------
-        // Send completion response
+        // Final completion metadata
         // -------------------------------------
+
+        const completionResponse = {
+          type: "complete",
+
+          success: true,
+
+          id:
+            generation._id,
+
+          method:
+            "Batch",
+
+          records:
+            totalRecords,
+
+          batchSize:
+            result.batchSize,
+
+          totalBatches:
+            result.totalBatches,
+
+          originalSchema:
+            schema,
+
+          normalizedSchema,
+
+          country,
+
+          generationTime:
+            `${result.generationTime} ms`,
+
+          memoryUsed:
+            `${result.memoryUsed} MB`,
+
+          dataStored:
+            shouldStoreData,
+
+          dataReturned:
+            sendBatchData,
+        };
+
+        console.log(
+          "Sending final completion metadata to client..."
+        );
 
         res.write(
-          JSON.stringify({
-            type: "complete",
+          JSON.stringify(
+            completionResponse
+          ) + "\n"
+        );
 
-            success: true,
-
-            id:
-              generation._id,
-
-            method:
-              "Batch",
-
-            records:
-              totalRecords,
-
-            batchSize:
-              result.batchSize,
-
-            totalBatches:
-              result.totalBatches,
-
-            originalSchema:
-              schema,
-
-            normalizedSchema,
-
-            country,
-
-            generationTime:
-              `${result.generationTime} ms`,
-
-            memoryUsed:
-              `${result.memoryUsed} MB`,
-          }) + "\n"
+        console.log(
+          "Final completion metadata sent."
         );
 
         res.end();
@@ -627,10 +656,6 @@ export const generateData = async (
       console.log(
         `Starting Streaming Generation | Total: ${totalRecords} | Country: ${country}`
       );
-
-      // ---------------------------------------
-      // Create streaming generator
-      // ---------------------------------------
 
       const stream =
         generateStreaming(
@@ -673,6 +698,11 @@ export const generateData = async (
       res.setHeader(
         "Transfer-Encoding",
         "chunked"
+      );
+
+      res.setHeader(
+        "Cache-Control",
+        "no-cache, no-transform"
       );
 
       // ---------------------------------------

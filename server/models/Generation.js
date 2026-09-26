@@ -35,8 +35,8 @@ const generationSchema = new mongoose.Schema(
     },
 
     data: {
-      type: Array,
-      required: true,
+      type: mongoose.Schema.Types.Mixed,
+      default: [],
     },
   },
   {
