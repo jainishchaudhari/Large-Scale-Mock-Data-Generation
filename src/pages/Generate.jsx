@@ -2,10 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 
-import {
-  clearGeneratedData,
-  saveBatch,
-} from "../utils/dataStorage";
+import { clearGeneratedData, saveBatch } from "../utils/dataStorage";
 
 // ======================================================
 // Real-World Schema Templates
@@ -957,6 +954,8 @@ const Generate = () => {
 
   const [country, setCountry] = useState("Global");
 
+  const [outputFormat, setOutputFormat] = useState("JSON");
+
   const [selectedTemplate, setSelectedTemplate] = useState("Custom");
 
   const [schemaText, setSchemaText] = useState(
@@ -995,12 +994,79 @@ const Generate = () => {
       const parsed = JSON.parse(schemaText);
 
       setSchemaText(JSON.stringify(parsed, null, 2));
+
       setError("");
     } catch (err) {
       setError(
         "Cannot format invalid JSON. Please fix the JSON syntax first.",
       );
     }
+  };
+
+  // ======================================================
+  // Records Input Handler
+  // ======================================================
+
+  const handleRecordsChange = (e) => {
+    const rawValue = e.target.value;
+
+    // Allow empty input while typing
+    if (rawValue === "") {
+      setRecords("");
+      return;
+    }
+
+    const value = Number(rawValue);
+
+    // Maximum 1,000,000 records
+    if (value > 1000000) {
+      setRecords(1000000);
+      return;
+    }
+
+    // Prevent negative values
+    if (value < 0) {
+      setRecords(1);
+      return;
+    }
+
+    setRecords(value);
+
+    // Keep batch size valid when total records becomes smaller
+    if (method === "Batch" && Number(batchSize) > value) {
+      setBatchSize(value);
+    }
+  };
+
+  // ======================================================
+  // Batch Size Input Handler
+  // ======================================================
+
+  const handleBatchSizeChange = (e) => {
+    const rawValue = e.target.value;
+
+    // Allow empty input while typing
+    if (rawValue === "") {
+      setBatchSize("");
+      return;
+    }
+
+    const value = Number(rawValue);
+    const maxBatchSize = Number(records) || 1;
+
+    // Batch size cannot exceed total records
+    if (value > maxBatchSize) {
+      setBatchSize(maxBatchSize);
+      return;
+    }
+
+    // Prevent negative values
+    if (value < 0) {
+      setBatchSize(1);
+      return;
+    }
+
+    setBatchSize(value);
   };
 
   // ======================================================
@@ -1022,6 +1088,11 @@ const Generate = () => {
       return;
     }
 
+    if (totalRecords > 1000000) {
+      setError("Maximum 1,000,000 records are allowed.");
+      return;
+    }
+
     // ==================================================
     // Batch Size Validation
     // ==================================================
@@ -1032,6 +1103,11 @@ const Generate = () => {
         selectedBatchSize < 1
       ) {
         setError("Please enter a valid batch size.");
+        return;
+      }
+
+      if (selectedBatchSize > 10000) {
+        setError("Maximum batch size is 10,000 records.");
         return;
       }
 
@@ -1103,11 +1179,13 @@ const Generate = () => {
             schema,
             records: totalRecords,
             method,
+
             batchSize:
-              method === "Batch"
-                ? selectedBatchSize
-                : null,
+              method === "Batch" ? selectedBatchSize : null,
+
             country,
+
+            outputFormat,
           }),
         },
       );
@@ -1140,6 +1218,7 @@ const Generate = () => {
         }
 
         const reader = response.body.getReader();
+
         const decoder = new TextDecoder();
 
         let buffer = "";
@@ -1204,9 +1283,7 @@ const Generate = () => {
               // ------------------------------------------------
 
               if (item.type === "complete") {
-                console.log(
-                  "All batches received.",
-                );
+                console.log("All batches received.");
 
                 completeMetadata = item;
               }
@@ -1269,8 +1346,7 @@ const Generate = () => {
 
         navigate("/results", {
           state: {
-            // IMPORTANT:
-            // Do NOT send the generated dataset
+            // Do NOT send generated dataset
             // through React Router state.
             data: [],
 
@@ -1283,6 +1359,8 @@ const Generate = () => {
             schema,
 
             country,
+
+            outputFormat,
 
             batchSize:
               completeMetadata.batchSize ||
@@ -1328,6 +1406,7 @@ const Generate = () => {
         }
 
         const reader = response.body.getReader();
+
         const decoder = new TextDecoder();
 
         let buffer = "";
@@ -1416,6 +1495,8 @@ const Generate = () => {
 
             country,
 
+            outputFormat,
+
             originalSchema:
               metadata?.originalSchema,
 
@@ -1457,7 +1538,6 @@ const Generate = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <main className="mx-auto max-w-6xl px-6 py-10">
-
         {/* Header */}
 
         <div className="mb-10">
@@ -1485,14 +1565,11 @@ const Generate = () => {
         )}
 
         <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
-
           {/* Schema Editor */}
 
           <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-
             <div className="border-b border-slate-800 px-6 py-5">
               <div className="flex items-center justify-between gap-4">
-
                 <div>
                   <h2 className="text-xl font-semibold">
                     Schema Definition
@@ -1505,7 +1582,6 @@ const Generate = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-
                   <button
                     onClick={formatJson}
                     className="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:border-purple-500 hover:text-purple-400"
@@ -1516,7 +1592,6 @@ const Generate = () => {
                   <span className="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
                     JSON
                   </span>
-
                 </div>
               </div>
             </div>
@@ -1524,9 +1599,7 @@ const Generate = () => {
             {/* Template Selector */}
 
             <div className="border-b border-slate-800 bg-slate-950/40 px-6 py-5">
-
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-
                 <div>
                   <label className="text-sm font-medium text-slate-300">
                     Schema Template
@@ -1577,14 +1650,12 @@ const Generate = () => {
                     👤 Customer / CRM
                   </option>
                 </select>
-
               </div>
             </div>
 
             {/* Editor */}
 
             <div className="overflow-hidden">
-
               <Editor
                 height="420px"
                 language="json"
@@ -1630,13 +1701,11 @@ const Generate = () => {
                   suggestOnTriggerCharacters: true,
                 }}
               />
-
             </div>
 
             {/* Schema Information */}
 
             <div className="border-t border-slate-800 bg-slate-950/50 px-6 py-4">
-
               <p className="text-xs leading-5 text-slate-500">
                 Example:{" "}
                 <span className="text-slate-400">
@@ -1655,15 +1724,12 @@ const Generate = () => {
                 min/max, minLength/maxLength, pattern and
                 minItems/maxItems.
               </p>
-
             </div>
-
           </section>
 
           {/* Generation Settings */}
 
           <section className="h-fit rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
             <h2 className="text-xl font-semibold">
               Generation Settings
             </h2>
@@ -1675,7 +1741,6 @@ const Generate = () => {
             {/* Records */}
 
             <div className="mt-7">
-
               <label className="text-sm font-medium text-slate-300">
                 Number of Records
               </label>
@@ -1683,24 +1748,21 @@ const Generate = () => {
               <input
                 type="number"
                 min="1"
+                max="1000000"
                 value={records}
-                onChange={(e) =>
-                  setRecords(e.target.value)
-                }
+                onChange={handleRecordsChange}
                 className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
               />
 
               <p className="mt-2 text-xs text-slate-500">
-                Enter the number of records required for
-                the benchmark.
+                Enter the number of records required for the
+                benchmark. Maximum: 1,000,000 records.
               </p>
-
             </div>
 
             {/* Country */}
 
             <div className="mt-7">
-
               <label className="text-sm font-medium text-slate-300">
                 Country / Data Locale
               </label>
@@ -1741,25 +1803,46 @@ const Generate = () => {
                 Select a country for localized data or choose
                 Global Data for worldwide data.
               </p>
+            </div>
 
+            {/* Output Format */}
+
+            <div className="mt-7">
+              <label className="text-sm font-medium text-slate-300">
+                Output Format
+              </label>
+
+              <select
+                value={outputFormat}
+                onChange={(e) =>
+                  setOutputFormat(e.target.value)
+                }
+                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
+              >
+                <option value="JSON">JSON</option>
+
+                <option value="JSONL">JSONL</option>
+              </select>
+
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                JSON is suitable for standard structured data.
+                JSONL is recommended for large-scale and
+                streaming-friendly workloads.
+              </p>
             </div>
 
             {/* Method */}
 
             <div className="mt-7">
-
               <label className="text-sm font-medium text-slate-300">
                 Generation Method
               </label>
 
               <div className="mt-3 space-y-3">
-
                 {/* Batch */}
 
                 <button
-                  onClick={() =>
-                    setMethod("Batch")
-                  }
+                  onClick={() => setMethod("Batch")}
                   className={`w-full rounded-xl border p-4 text-left transition ${
                     method === "Batch"
                       ? "border-purple-500 bg-purple-500/10"
@@ -1767,7 +1850,6 @@ const Generate = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-
                     <span className="font-semibold">
                       Batch
                     </span>
@@ -1777,23 +1859,18 @@ const Generate = () => {
                         Selected
                       </span>
                     )}
-
                   </div>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Generates and delivers records
-                    progressively in user-defined
-                    mini-batches.
+                    Generates and delivers records progressively
+                    in user-defined mini-batches.
                   </p>
-
                 </button>
 
                 {/* Streaming */}
 
                 <button
-                  onClick={() =>
-                    setMethod("Streaming")
-                  }
+                  onClick={() => setMethod("Streaming")}
                   className={`w-full rounded-xl border p-4 text-left transition ${
                     method === "Streaming"
                       ? "border-purple-500 bg-purple-500/10"
@@ -1801,7 +1878,6 @@ const Generate = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-
                     <span className="font-semibold">
                       Streaming
                     </span>
@@ -1811,16 +1887,13 @@ const Generate = () => {
                         Selected
                       </span>
                     )}
-
                   </div>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Generates records progressively using
-                    a continuous stream.
+                    Generates records progressively using a
+                    continuous stream.
                   </p>
-
                 </button>
-
               </div>
             </div>
 
@@ -1828,7 +1901,6 @@ const Generate = () => {
 
             {method === "Batch" && (
               <div className="mt-7">
-
                 <label className="text-sm font-medium text-slate-300">
                   Mini-Batch Size
                 </label>
@@ -1836,11 +1908,9 @@ const Generate = () => {
                 <input
                   type="number"
                   min="1"
-                  max={records}
+                  max={Number(records) || 1}
                   value={batchSize}
-                  onChange={(e) =>
-                    setBatchSize(e.target.value)
-                  }
+                  onChange={handleBatchSizeChange}
                   className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-purple-500"
                 />
 
@@ -1850,12 +1920,11 @@ const Generate = () => {
                 </p>
 
                 <div className="mt-3 rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-2.5">
-
                   <p className="text-xs text-purple-300">
-                    {records} records with batch size{" "}
+                    {records || 0} records with batch size{" "}
                     {batchSize || 0}
                     {" → approximately "}
-                    {batchSize > 0
+                    {Number(batchSize) > 0
                       ? Math.ceil(
                           Number(records) /
                             Number(batchSize),
@@ -1863,9 +1932,7 @@ const Generate = () => {
                       : 0}
                     {" batches will be delivered progressively."}
                   </p>
-
                 </div>
-
               </div>
             )}
 
@@ -1882,31 +1949,25 @@ const Generate = () => {
                   : "Streaming Data..."
                 : "Generate Mock Data"}
             </button>
-
           </section>
         </div>
 
         {/* Information */}
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-
           <div className="flex gap-4">
-
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
-              <span className="text-lg">
-                i
-              </span>
+              <span className="text-lg">i</span>
             </div>
 
             <div>
-
               <h3 className="font-semibold text-white">
                 Real-World Schema Templates
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                MockGen provides domain-specific schemas
-                for school, college, banking, healthcare,
+                MockGen provides domain-specific schemas for
+                school, college, banking, healthcare,
                 e-commerce, employee management and CRM
                 applications. These schemas contain nested
                 objects, arrays, categorical values and
@@ -1915,29 +1976,24 @@ const Generate = () => {
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 The selected schema is passed to the same
-                AI-assisted and rule-based generation
-                pipeline. The generator interprets the field
-                semantics and preserves the defined
-                constraints while generating realistic mock
-                records.
+                AI-assisted and rule-based generation pipeline.
+                The generator interprets the field semantics and
+                preserves the defined constraints while
+                generating realistic mock records.
               </p>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 In Batch mode, records are generated in
                 configurable mini-batches and each completed
                 batch is sent to the client immediately. The
-                received batch is temporarily stored in
-                browser IndexedDB so that very large datasets
-                can be browsed later without storing the
-                dataset in MongoDB.
+                received batch is temporarily stored in browser
+                IndexedDB so that very large datasets can be
+                browsed later without storing the dataset in
+                MongoDB.
               </p>
-
             </div>
-
           </div>
-
         </section>
-
       </main>
     </div>
   );

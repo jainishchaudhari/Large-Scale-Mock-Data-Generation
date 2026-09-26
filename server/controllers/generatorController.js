@@ -68,9 +68,7 @@ const isValidSemanticMap = (
       const hasNestedDotPaths =
         Object.keys(semanticMap).some(
           (key) =>
-            key.startsWith(
-              `${currentPath}.`
-            )
+            key.startsWith(`${currentPath}.`)
         );
 
       if (hasNestedDotPaths) {
@@ -152,9 +150,7 @@ const isValidSemanticMap = (
 
       if (
         semanticType !== undefined &&
-        !allowedTypes.has(
-          semanticType
-        )
+        !allowedTypes.has(semanticType)
       ) {
         return false;
       }
@@ -177,9 +173,7 @@ const isValidSemanticMap = (
     }
 
     if (
-      !allowedTypes.has(
-        semanticType
-      )
+      !allowedTypes.has(semanticType)
     ) {
       return false;
     }
@@ -207,7 +201,24 @@ export const generateData = async (
       method = "Batch",
       batchSize = 100,
       country = "India",
+      outputFormat = "JSON",
     } = req.body;
+
+    // -----------------------------------------
+    // Validate output format
+    // -----------------------------------------
+
+    if (
+      !["JSON", "JSONL"].includes(
+        outputFormat
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid output format. Use JSON or JSONL.",
+      });
+    }
 
     // -----------------------------------------
     // Validate schema
@@ -245,6 +256,36 @@ export const generateData = async (
     }
 
     // -----------------------------------------
+    // Maximum total record limit
+    // -----------------------------------------
+
+    if (
+      totalRecords > 1000000
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Maximum 1,000,000 records are allowed.",
+      });
+    }
+
+    // -----------------------------------------
+    // Validate generation method
+    // -----------------------------------------
+
+    if (
+      !["Batch", "Streaming"].includes(
+        method
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid generation method. Use Batch or Streaming.",
+      });
+    }
+
+    // -----------------------------------------
     // Validate batch size
     // -----------------------------------------
 
@@ -254,6 +295,10 @@ export const generateData = async (
     if (
       method === "Batch"
     ) {
+      // ---------------------------------------
+      // Batch size must be positive integer
+      // ---------------------------------------
+
       if (
         !Number.isInteger(
           selectedBatchSize
@@ -266,6 +311,24 @@ export const generateData = async (
             "Batch size must be a positive integer",
         });
       }
+
+      // ---------------------------------------
+      // Maximum batch size
+      // ---------------------------------------
+
+      if (
+        selectedBatchSize > 10000
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Maximum batch size is 10,000 records.",
+        });
+      }
+
+      // ---------------------------------------
+      // Batch size cannot exceed total records
+      // ---------------------------------------
 
       if (
         selectedBatchSize >
@@ -378,7 +441,7 @@ export const generateData = async (
       method === "Batch"
     ) {
       console.log(
-        `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize} | Country: ${country}`
+        `Starting Mini-Batch Generation | Total: ${totalRecords} | Batch Size: ${selectedBatchSize} | Country: ${country} | Output Format: ${outputFormat}`
       );
 
       // ---------------------------------------
@@ -406,14 +469,7 @@ export const generateData = async (
       );
 
       // ---------------------------------------
-      // Large datasets should not send the
-      // complete generated data to browser.
-      //
-      // <= 10K:
-      //     send batch data to frontend
-      //
-      // > 10K:
-      //     send progress + metadata only
+      // Send generated batch data
       // ---------------------------------------
 
       const sendBatchData = true;
@@ -486,8 +542,7 @@ export const generateData = async (
               );
 
               // ---------------------------------
-              // If Node response buffer is full,
-              // wait for drain before continuing.
+              // Wait for drain if buffer is full
               // ---------------------------------
 
               if (!canContinue) {
@@ -525,8 +580,8 @@ export const generateData = async (
         //
         // For small runs we store generated data.
         // For large benchmark runs we store only
-        // metadata because the generated data can
-        // be much larger than MongoDB's document limit.
+        // metadata because generated data can become
+        // much larger than MongoDB's document limit.
 
         const shouldStoreData =
           totalRecords <= 10000;
@@ -553,6 +608,8 @@ export const generateData = async (
               Number(
                 result.memoryUsed
               ),
+
+            outputFormat,
 
             data:
               shouldStoreData
@@ -594,6 +651,8 @@ export const generateData = async (
           normalizedSchema,
 
           country,
+
+          outputFormat,
 
           generationTime:
             `${result.generationTime} ms`,
@@ -654,7 +713,7 @@ export const generateData = async (
       method === "Streaming"
     ) {
       console.log(
-        `Starting Streaming Generation | Total: ${totalRecords} | Country: ${country}`
+        `Starting Streaming Generation | Total: ${totalRecords} | Country: ${country} | Output Format: ${outputFormat}`
       );
 
       const stream =
@@ -674,6 +733,10 @@ export const generateData = async (
 
             console.log(
               `Country: ${country}`
+            );
+
+            console.log(
+              `Output Format: ${outputFormat}`
             );
 
             console.log(

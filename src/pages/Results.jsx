@@ -67,8 +67,6 @@ const Results = () => {
         if (data.success) {
           setHistory(data.results);
 
-          // If page refreshed and no navigation state,
-          // open latest generation metadata
           if (!location.state && data.results.length > 0) {
             setSelectedResult(data.results[0]);
           }
@@ -162,6 +160,9 @@ const Results = () => {
       dataStored: item.dataStored,
 
       dataReturned: item.dataReturned,
+
+      // New field
+      outputFormat: item.outputFormat || "JSON",
     });
 
     setCurrentBatchNumber(1);
@@ -243,6 +244,10 @@ const Results = () => {
                         </th>
 
                         <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                          Format
+                        </th>
+
+                        <th className="px-6 py-4 text-sm font-semibold text-slate-300">
                           Generation Time
                         </th>
 
@@ -273,6 +278,12 @@ const Results = () => {
                           <td className="px-6 py-4">
                             <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400">
                               {item.method}
+                            </span>
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400">
+                              {item.outputFormat || "JSON"}
                             </span>
                           </td>
 
@@ -342,6 +353,8 @@ const Results = () => {
 
   const result = selectedResult;
 
+  const outputFormat = result.outputFormat || "JSON";
+
   const recordCount = Number(result.records || storedRecordCount || 0);
 
   const batchSize = Number(result.batchSize || 1000);
@@ -353,7 +366,14 @@ const Results = () => {
 
   const previewAvailable = currentBatchData.length > 0;
 
-  const jsonData = JSON.stringify(currentBatchData, null, 2);
+  // --------------------------------
+  // Format Current Batch
+  // --------------------------------
+
+  const displayData =
+    outputFormat === "JSONL"
+      ? currentBatchData.map((record) => JSON.stringify(record)).join("\n")
+      : JSON.stringify(currentBatchData, null, 2);
 
   // --------------------------------
   // Schema Helper
@@ -377,7 +397,7 @@ const Results = () => {
     }
 
     try {
-      await navigator.clipboard.writeText(jsonData);
+      await navigator.clipboard.writeText(displayData);
 
       setCopied(true);
 
@@ -393,41 +413,20 @@ const Results = () => {
   // Download Current Batch
   // --------------------------------
 
-  const handleDownload = async () => {
-    if (!selectedResult) {
+  const handleDownloadCurrentBatch = async () => {
+    if (!previewAvailable) {
       return;
     }
 
     try {
-      setLoadingBatch(true);
+      const isJSONL = outputFormat === "JSONL";
 
-      const chunks = [];
+      const content = isJSONL
+        ? currentBatchData.map((record) => JSON.stringify(record)).join("\n")
+        : JSON.stringify(currentBatchData, null, 2);
 
-      // Start JSON array
-      chunks.push("[\n");
-
-      let firstRecord = true;
-
-      await readBatchesSequentially(async (batch) => {
-        const batchData = Array.isArray(batch.data) ? batch.data : [];
-
-        for (const record of batchData) {
-          if (!firstRecord) {
-            chunks.push(",\n");
-          }
-
-          // Pretty-format every record
-          chunks.push(JSON.stringify(record, null, 2));
-
-          firstRecord = false;
-        }
-      });
-
-      // End JSON array
-      chunks.push("\n]");
-
-      const blob = new Blob(chunks, {
-        type: "application/json",
+      const blob = new Blob([content], {
+        type: isJSONL ? "application/x-ndjson" : "application/json",
       });
 
       const url = URL.createObjectURL(blob);
@@ -436,7 +435,88 @@ const Results = () => {
 
       link.href = url;
 
-      link.download = `mock-data-${selectedResult.records}.json`;
+      link.download = `mock-data-batch-${currentBatchNumber}.${isJSONL ? "jsonl" : "json"}`;
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Current batch download failed:", error);
+
+      alert("Failed to download the current batch.");
+    }
+  };
+
+  // --------------------------------
+  // Download Full Dataset
+  // --------------------------------
+
+  const handleDownloadFullDataset = async () => {
+    if (!selectedResult) {
+      return;
+    }
+
+    try {
+      setLoadingBatch(true);
+
+      const isJSONL = outputFormat === "JSONL";
+
+      const chunks = [];
+
+      let firstRecord = true;
+
+      // --------------------------------
+      // JSONL
+      // --------------------------------
+
+      if (isJSONL) {
+        await readBatchesSequentially(async (batch) => {
+          const batchData = Array.isArray(batch.data) ? batch.data : [];
+
+          for (const record of batchData) {
+            chunks.push(JSON.stringify(record) + "\n");
+          }
+        });
+      }
+
+      // --------------------------------
+      // JSON
+      // --------------------------------
+      else {
+        chunks.push("[\n");
+
+        await readBatchesSequentially(async (batch) => {
+          const batchData = Array.isArray(batch.data) ? batch.data : [];
+
+          for (const record of batchData) {
+            if (!firstRecord) {
+              chunks.push(",\n");
+            }
+
+            chunks.push(JSON.stringify(record, null, 2));
+
+            firstRecord = false;
+          }
+        });
+
+        chunks.push("\n]");
+      }
+
+      const blob = new Blob(chunks, {
+        type: isJSONL ? "application/x-ndjson" : "application/json",
+      });
+
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+
+      link.href = url;
+
+      link.download = `mock-data-${selectedResult.records}.${isJSONL ? "jsonl" : "json"}`;
 
       document.body.appendChild(link);
 
@@ -558,6 +638,20 @@ const Results = () => {
 
             <p className="mt-2 text-xs text-slate-500">
               Selected generation strategy
+            </p>
+          </div>
+
+          {/* Output Format */}
+
+          <div className="rounded-2xl border border-blue-500/20 bg-slate-900 p-6">
+            <p className="text-sm text-slate-400">Output Format</p>
+
+            <h2 className="mt-3 text-3xl font-bold text-blue-400">
+              {outputFormat}
+            </h2>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Selected export format
             </p>
           </div>
 
@@ -793,7 +887,17 @@ const Results = () => {
         <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900">
           <div className="flex flex-col justify-between gap-4 border-b border-slate-800 p-6 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-xl font-semibold">JSON Data Preview</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-semibold">
+                  {outputFormat === "JSONL"
+                    ? "JSONL Data Preview"
+                    : "JSON Data Preview"}
+                </h2>
+
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
+                  {outputFormat}
+                </span>
+              </div>
 
               <p className="mt-1 text-sm text-slate-500">
                 Viewing one generated batch at a time.
@@ -801,7 +905,7 @@ const Results = () => {
             </div>
 
             {previewAvailable && (
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={handleCopy}
@@ -811,8 +915,16 @@ const Results = () => {
                 </button>
 
                 <button
+                  onClick={handleDownloadCurrentBatch}
+                  disabled={!previewAvailable}
+                  className="rounded-lg border border-purple-500/40 bg-purple-600/20 px-4 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-600/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Download Current Batch
+                </button>
+
+                <button
                   type="button"
-                  onClick={handleDownload}
+                  onClick={handleDownloadFullDataset}
                   disabled={loadingBatch}
                   className="rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -844,12 +956,15 @@ const Results = () => {
 
                 <p className="mt-1 text-lg font-semibold text-purple-400">
                   {currentBatchNumber.toLocaleString()}
+
                   {" / "}
+
                   {totalBatches.toLocaleString()}
                 </p>
 
                 <p className="mt-1 text-xs text-slate-500">
                   {currentBatchData.length.toLocaleString()}
+
                   {" records loaded"}
                 </p>
               </div>
@@ -882,7 +997,7 @@ const Results = () => {
                   height="600px"
                   language="json"
                   theme="vs-dark"
-                  value={jsonData}
+                  value={displayData}
                   options={{
                     readOnly: true,
 
@@ -1023,6 +1138,10 @@ const Results = () => {
                       </th>
 
                       <th className="px-6 py-4 text-sm font-semibold text-slate-300">
+                        Format
+                      </th>
+
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-300">
                         Generation Time
                       </th>
 
@@ -1053,6 +1172,12 @@ const Results = () => {
                         <td className="px-6 py-4">
                           <span className="rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400">
                             {item.method}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400">
+                            {item.outputFormat || "JSON"}
                           </span>
                         </td>
 

@@ -34,6 +34,13 @@ const generationSchema = new mongoose.Schema(
       required: true,
     },
 
+    outputFormat: {
+      type: String,
+      required: true,
+      enum: ["JSON", "JSONL"],
+      default: "JSON",
+    },
+
     data: {
       type: mongoose.Schema.Types.Mixed,
       default: [],
