@@ -5,7 +5,9 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const user = JSON.parse(
+    localStorage.getItem("user") || "null"
+  );
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -17,8 +19,12 @@ const Navbar = () => {
   return (
     <nav className="h-16 border-b border-slate-800 bg-slate-950">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+
         {/* Logo */}
-        <Link to="/" className="flex h-16 items-center">
+        <Link
+          to="/"
+          className="flex h-16 items-center"
+        >
           <img
             src={logo3}
             alt="MockGen"
@@ -28,7 +34,11 @@ const Navbar = () => {
 
         {/* Navigation */}
         <div className="hidden items-center gap-8 text-sm md:flex">
-          <Link to="/" className="text-slate-300 transition hover:text-white">
+
+          <Link
+            to="/"
+            className="text-slate-300 transition hover:text-white"
+          >
             Home
           </Link>
 
@@ -63,16 +73,43 @@ const Navbar = () => {
               </Link>
             </>
           )}
+
         </div>
 
         {/* Authentication */}
         <div className="flex items-center gap-3">
+
           {token ? (
             <>
-              {/* User Name */}
-              <span className="hidden text-sm text-slate-300 sm:block">
-                Hi, {user?.name}
-              </span>
+              {/* User Profile */}
+              <button
+                onClick={() => navigate("/profile")}
+                title="Open Profile"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-800"
+              >
+                {/* User Name */}
+                <span className="text-sm text-slate-300 transition hover:text-purple-400">
+                  Hi, {user?.name || "User"}
+                </span>
+
+                {/* Profile Icon */}
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-purple-500 hover:bg-purple-500/10 hover:text-purple-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.8"
+                    stroke="currentColor"
+                    className="h-5 w-5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
+                    />
+                  </svg>
+                </span>
+              </button>
 
               {/* Logout */}
               <button
@@ -109,7 +146,9 @@ const Navbar = () => {
               </Link>
             </>
           )}
+
         </div>
+
       </div>
     </nav>
   );

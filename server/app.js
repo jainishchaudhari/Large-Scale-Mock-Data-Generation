@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import generatorRoutes from "./routes/generatorRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 import { interpretSchema } from "./services/aiSchemaInterpreter.js";
 
@@ -52,8 +53,14 @@ app.get("/api/test-gemini", async (req, res) => {
   }
 });
 
+// ==============================
+// API Routes
+// ==============================
+
 app.use("/api/generator", generatorRoutes);
 
 app.use("/api/auth", authRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 export default app;

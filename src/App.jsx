@@ -9,6 +9,7 @@ import Results from "./pages/Results";
 import Performance from "./pages/Performance";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Profile from "./pages/Profile";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -51,6 +52,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Performance />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Profile */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />
