@@ -75,10 +75,11 @@ const AdminDashboard = () => {
 
       {/* Admin Header */}
       <div className="border-b border-red-500/20 bg-[#0f1217]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto max-w-7xl px-6 py-5">
 
           <div>
             <div className="mb-1 flex items-center gap-3">
+
               <span className="rounded-md border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-xs font-bold tracking-wider text-red-400">
                 ADMIN PANEL
               </span>
@@ -86,6 +87,7 @@ const AdminDashboard = () => {
               <span className="text-xs text-slate-500">
                 MockGen System Management
               </span>
+
             </div>
 
             <h1 className="text-2xl font-bold">
@@ -97,35 +99,36 @@ const AdminDashboard = () => {
             </p>
           </div>
 
-          <button
-            onClick={() => navigate("/")}
-            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-red-500/50 hover:text-red-400"
-          >
-            Back to MockGen
-          </button>
-
         </div>
       </div>
 
       {/* Dashboard */}
       <main className="mx-auto max-w-7xl px-6 py-8">
 
+        {/* Loading */}
         {loading && (
           <div className="rounded-xl border border-slate-800 bg-[#11151b] p-8 text-center text-slate-400">
             Loading admin statistics...
           </div>
         )}
 
+        {/* Error */}
         {error && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-400">
             {error}
           </div>
         )}
 
+        {/* Dashboard Content */}
         {!loading && !error && stats && (
           <>
-            {/* Statistics */}
+
+            {/* =========================================
+                Statistics
+            ========================================= */}
+
             <div className="mb-8">
+
               <div className="mb-4">
                 <h2 className="text-lg font-semibold">
                   System Overview
@@ -143,6 +146,7 @@ const AdminDashboard = () => {
                     key={card.title}
                     className="group rounded-xl border border-slate-800 bg-[#11151b] p-5 transition hover:border-red-500/40"
                   >
+
                     <div className="mb-5 flex items-center justify-between">
 
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10 text-sm font-bold text-red-400">
@@ -158,14 +162,21 @@ const AdminDashboard = () => {
                     <p className="mt-1 text-2xl font-bold tracking-tight">
                       {card.value.toLocaleString()}
                     </p>
+
                   </div>
                 ))}
 
               </div>
+
             </div>
 
-            {/* Admin Modules */}
+
+            {/* =========================================
+                Admin Modules
+            ========================================= */}
+
             <div>
+
               <div className="mb-4">
                 <h2 className="text-lg font-semibold">
                   Management
@@ -176,13 +187,18 @@ const AdminDashboard = () => {
                 </p>
               </div>
 
+
               <div className="grid gap-4 md:grid-cols-2">
 
-                {/* Users */}
+                {/* =====================================
+                    Users
+                ===================================== */}
+
                 <button
                   onClick={() => navigate("/admin/users")}
                   className="group rounded-xl border border-slate-800 bg-[#11151b] p-6 text-left transition hover:border-red-500/40 hover:bg-[#14191f]"
                 >
+
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10 font-bold text-red-400">
                     U
                   </div>
@@ -198,15 +214,21 @@ const AdminDashboard = () => {
                   <span className="mt-5 inline-block text-sm font-medium text-red-400 transition group-hover:text-red-300">
                     Manage Users →
                   </span>
+
                 </button>
 
-                {/* Generations */}
+
+                {/* =====================================
+                    Generations
+                ===================================== */}
+
                 <button
                   onClick={() =>
                     navigate("/admin/generations")
                   }
                   className="group rounded-xl border border-slate-800 bg-[#11151b] p-6 text-left transition hover:border-red-500/40 hover:bg-[#14191f]"
                 >
+
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10 font-bold text-red-400">
                     G
                   </div>
@@ -222,14 +244,18 @@ const AdminDashboard = () => {
                   <span className="mt-5 inline-block text-sm font-medium text-red-400 transition group-hover:text-red-300">
                     View Generations →
                   </span>
+
                 </button>
 
               </div>
+
             </div>
+
           </>
         )}
 
       </main>
+
     </div>
   );
 };

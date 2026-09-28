@@ -1,7 +1,14 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import AdminLayout from "./components/AdminLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminOnlyRoute from "./components/AdminOnlyRoute";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -11,23 +18,29 @@ import Performance from "./pages/Performance";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
+
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
+import AdminGenerations from "./pages/AdminGenerations";
 
-import ProtectedRoute from "./components/ProtectedRoute";
+function AppContent() {
+  const location = useLocation();
 
-function App() {
+  // Hide normal Navbar on admin pages
+  const isAdminPage =
+    location.pathname === "/admin" ||
+    location.pathname.startsWith("/admin/");
+
   return (
-    <BrowserRouter>
-
-      {/* Common Navbar */}
-      <Navbar />
+    <>
+      {/* Normal User Navbar */}
+      {!isAdminPage && <Navbar />}
 
       <Routes>
 
-        {/* ==============================
+        {/* =========================================
             Public Pages
-        ============================== */}
+        ========================================= */}
 
         <Route
           path="/"
@@ -50,9 +63,9 @@ function App() {
         />
 
 
-        {/* ==============================
+        {/* =========================================
             Protected User Pages
-        ============================== */}
+        ========================================= */}
 
         <Route
           path="/generate"
@@ -81,7 +94,6 @@ function App() {
           }
         />
 
-        {/* Profile */}
         <Route
           path="/profile"
           element={
@@ -92,36 +104,52 @@ function App() {
         />
 
 
-        {/* ==============================
+        {/* =========================================
             Admin Pages
-        ============================== */}
+        ========================================= */}
 
-        {/* Admin Dashboard */}
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <AdminOnlyRoute>
               <AdminLayout>
                 <AdminDashboard />
               </AdminLayout>
-            </ProtectedRoute>
+            </AdminOnlyRoute>
           }
         />
 
-        {/* Admin Users */}
         <Route
           path="/admin/users"
           element={
-            <ProtectedRoute>
+            <AdminOnlyRoute>
               <AdminLayout>
                 <AdminUsers />
               </AdminLayout>
-            </ProtectedRoute>
+            </AdminOnlyRoute>
+          }
+        />
+
+        <Route
+          path="/admin/generations"
+          element={
+            <AdminOnlyRoute>
+              <AdminLayout>
+                <AdminGenerations />
+              </AdminLayout>
+            </AdminOnlyRoute>
           }
         />
 
       </Routes>
+    </>
+  );
+}
 
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }

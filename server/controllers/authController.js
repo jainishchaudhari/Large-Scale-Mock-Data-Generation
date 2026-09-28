@@ -61,6 +61,7 @@ export const signup = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -76,6 +77,7 @@ export const signup = async (req, res) => {
     });
   }
 };
+
 
 // =============================================
 // Login
@@ -117,6 +119,7 @@ export const login = async (req, res) => {
       });
     }
 
+    // Create JWT token
     const token = jwt.sign(
       {
         userId: user._id,
@@ -136,6 +139,7 @@ export const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -151,6 +155,7 @@ export const login = async (req, res) => {
     });
   }
 };
+
 
 // =============================================
 // Get Logged-in User Profile
@@ -168,7 +173,7 @@ export const getProfile = async (
     const user = await User.findById(
       req.userId
     ).select(
-      "name email createdAt"
+      "name email role createdAt"
     );
 
     if (!user) {
@@ -177,6 +182,7 @@ export const getProfile = async (
         message: "User not found",
       });
     }
+
 
     // -----------------------------------------
     // Calculate generation statistics
@@ -235,6 +241,7 @@ export const getProfile = async (
         },
       ]);
 
+
     // -----------------------------------------
     // Default statistics
     // -----------------------------------------
@@ -247,6 +254,7 @@ export const getProfile = async (
         streamingGenerations: 0,
       };
 
+
     // -----------------------------------------
     // Send profile response
     // -----------------------------------------
@@ -258,6 +266,7 @@ export const getProfile = async (
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
         createdAt: user.createdAt,
       },
 

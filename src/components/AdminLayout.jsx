@@ -13,19 +13,20 @@ const AdminLayout = ({ children }) => {
   const navClass = ({ isActive }) =>
     `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${
       isActive
-        ? "bg-red-500/10 text-red-400 border border-red-500/20"
+        ? "border border-red-500/20 bg-red-500/10 text-red-400"
         : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
     }`;
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#0b0d10] text-white">
+    <div className="flex min-h-screen bg-[#0b0d10] text-white">
 
-      {/* =========================
+      {/* =========================================
           Admin Sidebar
-      ========================= */}
+      ========================================= */}
+
       <aside className="hidden w-64 shrink-0 border-r border-slate-800 bg-[#0f1217] md:flex md:flex-col">
 
-        {/* Logo / Admin Brand */}
+        {/* Admin Brand */}
         <div className="border-b border-slate-800 px-5 py-6">
 
           <div className="text-lg font-bold tracking-tight">
@@ -38,6 +39,7 @@ const AdminLayout = ({ children }) => {
 
         </div>
 
+
         {/* Navigation */}
         <nav className="flex-1 space-y-2 px-4 py-6">
 
@@ -45,6 +47,8 @@ const AdminLayout = ({ children }) => {
             Management
           </p>
 
+
+          {/* Dashboard */}
           <NavLink
             to="/admin"
             end
@@ -57,6 +61,8 @@ const AdminLayout = ({ children }) => {
             Dashboard
           </NavLink>
 
+
+          {/* Users */}
           <NavLink
             to="/admin/users"
             className={navClass}
@@ -68,6 +74,8 @@ const AdminLayout = ({ children }) => {
             Users
           </NavLink>
 
+
+          {/* Generations */}
           <NavLink
             to="/admin/generations"
             className={navClass}
@@ -81,38 +89,35 @@ const AdminLayout = ({ children }) => {
 
         </nav>
 
-        {/* Bottom Actions */}
+
+        {/* =========================================
+            Logout
+        ========================================= */}
+
         <div className="border-t border-slate-800 p-4">
-
-          <button
-            onClick={() => navigate("/")}
-            className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-slate-400 transition hover:bg-slate-800/60 hover:text-white"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs">
-              ←
-            </span>
-
-            Back to MockGen
-          </button>
 
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
           >
+
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs">
               ↪
             </span>
 
             Logout
+
           </button>
 
         </div>
 
       </aside>
 
-      {/* =========================
+
+      {/* =========================================
           Main Admin Content
-      ========================= */}
+      ========================================= */}
+
       <main className="min-w-0 flex-1">
         {children}
       </main>

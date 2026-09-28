@@ -41,7 +41,10 @@ const Login = () => {
       }
 
       // Save JWT token
-      localStorage.setItem("token", result.token);
+      localStorage.setItem(
+        "token",
+        result.token
+      );
 
       // Save user information
       localStorage.setItem(
@@ -49,8 +52,18 @@ const Login = () => {
         JSON.stringify(result.user)
       );
 
-      // Go to Home
-      navigate("/");
+      // =============================================
+      // Role Based Redirect
+      // =============================================
+
+      if (result.user.role === "admin") {
+        // Admin → Admin Panel
+        navigate("/admin");
+      } else {
+        // Normal User → Home
+        navigate("/");
+      }
+
     } catch (error) {
       console.error("Login Error:", error);
 
@@ -145,7 +158,9 @@ const Login = () => {
                 disabled={loading}
                 className="w-full rounded-lg bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Logging in..." : "Login"}
+                {loading
+                  ? "Logging in..."
+                  : "Login"}
               </button>
 
             </form>
@@ -153,12 +168,14 @@ const Login = () => {
             {/* Signup Link */}
             <p className="mt-6 text-center text-sm text-slate-400">
               Don't have an account?{" "}
+
               <Link
                 to="/signup"
                 className="font-semibold text-purple-400 hover:text-purple-300"
               >
                 Create Account
               </Link>
+
             </p>
 
           </div>
