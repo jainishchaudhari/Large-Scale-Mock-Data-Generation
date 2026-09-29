@@ -9,6 +9,7 @@ import Navbar from "./components/Navbar";
 import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminOnlyRoute from "./components/AdminOnlyRoute";
+import PublicRoute from "./components/PublicRoute";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -33,7 +34,10 @@ function AppContent() {
 
   return (
     <>
-      {/* Normal User Navbar */}
+      {/* =========================================
+          Normal User Navbar
+      ========================================= */}
+
       {!isAdminPage && <Navbar />}
 
       <Routes>
@@ -44,22 +48,38 @@ function AppContent() {
 
         <Route
           path="/"
-          element={<Home />}
+          element={
+            <PublicRoute>
+              <Home />
+            </PublicRoute>
+          }
         />
 
         <Route
           path="/about"
-          element={<About />}
+          element={
+            <PublicRoute>
+              <About />
+            </PublicRoute>
+          }
         />
 
         <Route
           path="/login"
-          element={<Login />}
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
         />
 
         <Route
           path="/signup"
-          element={<Signup />}
+          element={
+            <PublicRoute>
+              <Signup />
+            </PublicRoute>
+          }
         />
 
 
