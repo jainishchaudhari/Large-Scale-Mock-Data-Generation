@@ -12,6 +12,9 @@ const AdminGenerations = () => {
   const [formatFilter, setFormatFilter] =
     useState("all");
 
+  const [deleteLoading, setDeleteLoading] =
+    useState("");
+
   // =============================================
   // Fetch Generations
   // =============================================
@@ -61,6 +64,74 @@ const AdminGenerations = () => {
     fetchGenerations();
   }, []);
 
+  // =============================================
+  // Delete Generation
+  // =============================================
+
+  const handleDeleteGeneration = async (
+    generationId,
+    generation
+  ) => {
+    const userName =
+      generation.userId?.name ||
+      "this user";
+
+    const records =
+      generation.records || 0;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this generation record?\n\nUser: ${userName}\nRecords: ${records.toLocaleString()}\n\nThis will permanently remove the generation metadata from the database.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(generationId);
+
+      const token =
+        localStorage.getItem("token");
+
+      const response = await fetch(
+        `http://localhost:5000/api/admin/generations/${generationId}`,
+        {
+          method: "DELETE",
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to delete generation"
+        );
+      }
+
+      // Remove deleted generation
+      // from current table immediately
+      setGenerations((prevGenerations) =>
+        prevGenerations.filter(
+          (item) =>
+            item._id !== generationId
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Delete Generation Error:",
+        error
+      );
+
+      alert(error.message);
+    } finally {
+      setDeleteLoading("");
+    }
+  };
 
   // =============================================
   // Search + Filters
@@ -76,6 +147,7 @@ const AdminGenerations = () => {
           search.toLowerCase().trim();
 
         const matchesSearch =
+          !searchValue ||
           user?.name
             ?.toLowerCase()
             .includes(searchValue) ||
@@ -101,7 +173,6 @@ const AdminGenerations = () => {
       }
     );
 
-
   // =============================================
   // Clear Filters
   // =============================================
@@ -111,7 +182,6 @@ const AdminGenerations = () => {
     setMethodFilter("all");
     setFormatFilter("all");
   };
-
 
   // =============================================
   // Render
@@ -153,7 +223,6 @@ const AdminGenerations = () => {
 
       </div>
 
-
       {/* =========================================
           Content
       ========================================= */}
@@ -168,7 +237,6 @@ const AdminGenerations = () => {
           </div>
         )}
 
-
         {/* Error */}
 
         {error && (
@@ -176,7 +244,6 @@ const AdminGenerations = () => {
             {error}
           </div>
         )}
-
 
         {/* Data */}
 
@@ -212,7 +279,6 @@ const AdminGenerations = () => {
 
               </div>
 
-
               {/* =================================
                   Search + Filters
               ================================= */}
@@ -233,7 +299,6 @@ const AdminGenerations = () => {
                   className="flex-1 rounded-lg border border-slate-700 bg-[#0d1014] px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-red-500/50"
                 />
 
-
                 {/* Method Filter */}
 
                 <select
@@ -245,7 +310,6 @@ const AdminGenerations = () => {
                   }
                   className="rounded-lg border border-slate-700 bg-[#0d1014] px-4 py-2.5 text-sm text-slate-300 outline-none transition focus:border-red-500/50"
                 >
-
                   <option value="all">
                     All Methods
                   </option>
@@ -257,9 +321,7 @@ const AdminGenerations = () => {
                   <option value="Streaming">
                     Streaming
                   </option>
-
                 </select>
-
 
                 {/* Format Filter */}
 
@@ -272,7 +334,6 @@ const AdminGenerations = () => {
                   }
                   className="rounded-lg border border-slate-700 bg-[#0d1014] px-4 py-2.5 text-sm text-slate-300 outline-none transition focus:border-red-500/50"
                 >
-
                   <option value="all">
                     All Formats
                   </option>
@@ -284,9 +345,7 @@ const AdminGenerations = () => {
                   <option value="JSONL">
                     JSONL
                   </option>
-
                 </select>
-
 
                 {/* Clear Filters */}
 
@@ -309,14 +368,13 @@ const AdminGenerations = () => {
 
             </div>
 
-
             {/* =====================================
                 Table
             ===================================== */}
 
             <div className="overflow-x-auto">
 
-              <table className="w-full min-w-[1200px] text-left">
+              <table className="w-full min-w-[1350px] text-left">
 
                 <thead className="border-b border-slate-800 bg-[#0d1014]">
 
@@ -354,10 +412,13 @@ const AdminGenerations = () => {
                       Date
                     </th>
 
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Actions
+                    </th>
+
                   </tr>
 
                 </thead>
-
 
                 <tbody className="divide-y divide-slate-800">
 
@@ -369,6 +430,10 @@ const AdminGenerations = () => {
 
                       const user =
                         generation.userId;
+
+                      const isDeleting =
+                        deleteLoading ===
+                        generation._id;
 
                       return (
                         <tr
@@ -383,7 +448,6 @@ const AdminGenerations = () => {
                           <td className="px-5 py-4 text-sm text-slate-500">
                             {index + 1}
                           </td>
-
 
                           {/* User */}
 
@@ -418,7 +482,6 @@ const AdminGenerations = () => {
 
                           </td>
 
-
                           {/* Records */}
 
                           <td className="px-5 py-4 text-sm font-medium text-slate-200">
@@ -427,7 +490,6 @@ const AdminGenerations = () => {
                               0
                             ).toLocaleString()}
                           </td>
-
 
                           {/* Method */}
 
@@ -447,7 +509,6 @@ const AdminGenerations = () => {
 
                           </td>
 
-
                           {/* Format */}
 
                           <td className="px-5 py-4">
@@ -459,7 +520,6 @@ const AdminGenerations = () => {
 
                           </td>
 
-
                           {/* Generation Time */}
 
                           <td className="px-5 py-4 text-sm text-slate-400">
@@ -468,7 +528,6 @@ const AdminGenerations = () => {
                               ? `${generation.generationTime} ms`
                               : "-"}
                           </td>
-
 
                           {/* Memory */}
 
@@ -479,7 +538,6 @@ const AdminGenerations = () => {
                               : "-"}
                           </td>
 
-
                           {/* Date */}
 
                           <td className="px-5 py-4 text-sm text-slate-500">
@@ -488,6 +546,33 @@ const AdminGenerations = () => {
                                   generation.createdAt
                                 ).toLocaleString()
                               : "-"}
+                          </td>
+
+                          {/* Actions */}
+
+                          <td className="px-5 py-4">
+
+                            <div className="flex justify-end">
+
+                              <button
+                                onClick={() =>
+                                  handleDeleteGeneration(
+                                    generation._id,
+                                    generation
+                                  )
+                                }
+                                disabled={
+                                  isDeleting
+                                }
+                                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isDeleting
+                                  ? "Deleting..."
+                                  : "Delete"}
+                              </button>
+
+                            </div>
+
                           </td>
 
                         </tr>
@@ -500,7 +585,6 @@ const AdminGenerations = () => {
               </table>
 
             </div>
-
 
             {/* =====================================
                 Empty State
