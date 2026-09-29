@@ -2,12 +2,27 @@ import { useEffect, useState } from "react";
 
 const AdminGenerations = () => {
   const [generations, setGenerations] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [search, setSearch] = useState("");
+  const [methodFilter, setMethodFilter] =
+    useState("all");
+  const [formatFilter, setFormatFilter] =
+    useState("all");
+
+  // =============================================
+  // Fetch Generations
+  // =============================================
+
   const fetchGenerations = async () => {
     try {
-      const token = localStorage.getItem("token");
+      setLoading(true);
+      setError("");
+
+      const token =
+        localStorage.getItem("token");
 
       const response = await fetch(
         "http://localhost:5000/api/admin/generations",
@@ -27,7 +42,9 @@ const AdminGenerations = () => {
         );
       }
 
-      setGenerations(data.generations || []);
+      setGenerations(
+        data.generations || []
+      );
     } catch (error) {
       console.error(
         "Admin Generations Error:",
@@ -44,14 +61,71 @@ const AdminGenerations = () => {
     fetchGenerations();
   }, []);
 
+
+  // =============================================
+  // Search + Filters
+  // =============================================
+
+  const filteredGenerations =
+    generations.filter(
+      (generation) => {
+        const user =
+          generation.userId;
+
+        const searchValue =
+          search.toLowerCase().trim();
+
+        const matchesSearch =
+          user?.name
+            ?.toLowerCase()
+            .includes(searchValue) ||
+          user?.email
+            ?.toLowerCase()
+            .includes(searchValue);
+
+        const matchesMethod =
+          methodFilter === "all" ||
+          generation.method ===
+            methodFilter;
+
+        const matchesFormat =
+          formatFilter === "all" ||
+          generation.outputFormat ===
+            formatFilter;
+
+        return (
+          matchesSearch &&
+          matchesMethod &&
+          matchesFormat
+        );
+      }
+    );
+
+
+  // =============================================
+  // Clear Filters
+  // =============================================
+
+  const clearFilters = () => {
+    setSearch("");
+    setMethodFilter("all");
+    setFormatFilter("all");
+  };
+
+
+  // =============================================
+  // Render
+  // =============================================
+
   return (
     <div className="min-h-full bg-[#0b0d10] text-white">
 
-      {/* ==============================
+      {/* =========================================
           Header
-      ============================== */}
+      ========================================= */}
 
       <div className="border-b border-red-500/20 bg-[#0f1217]">
+
         <div className="px-6 py-6">
 
           <div className="mb-2 flex items-center gap-3">
@@ -71,17 +145,18 @@ const AdminGenerations = () => {
           </h1>
 
           <p className="mt-1 text-sm text-slate-400">
-            Monitor mock data generation activity across
-            all users.
+            Monitor mock data generation activity
+            across all users.
           </p>
 
         </div>
+
       </div>
 
 
-      {/* ==============================
+      {/* =========================================
           Content
-      ============================== */}
+      ========================================= */}
 
       <main className="p-6">
 
@@ -108,35 +183,140 @@ const AdminGenerations = () => {
         {!loading && !error && (
           <div className="overflow-hidden rounded-xl border border-slate-800 bg-[#11151b]">
 
-            {/* Table Header */}
+            {/* =====================================
+                Top Section
+            ===================================== */}
 
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+            <div className="border-b border-slate-800 px-5 py-4">
 
-              <div>
+              <div className="mb-4 flex items-center justify-between">
 
-                <h2 className="font-semibold">
-                  Generation History
-                </h2>
+                <div>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  {generations.length.toLocaleString()}{" "}
-                  generation records found
-                </p>
+                  <h2 className="font-semibold">
+                    Generation History
+                  </h2>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    {filteredGenerations.length.toLocaleString()}{" "}
+                    of{" "}
+                    {generations.length.toLocaleString()}{" "}
+                    generation records shown
+                  </p>
+
+                </div>
+
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400">
+                  {generations.length} Runs
+                </div>
 
               </div>
 
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400">
-                {generations.length} Runs
+
+              {/* =================================
+                  Search + Filters
+              ================================= */}
+
+              <div className="flex flex-col gap-3 lg:flex-row">
+
+                {/* Search */}
+
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) =>
+                    setSearch(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Search by user name or email..."
+                  className="flex-1 rounded-lg border border-slate-700 bg-[#0d1014] px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-red-500/50"
+                />
+
+
+                {/* Method Filter */}
+
+                <select
+                  value={methodFilter}
+                  onChange={(e) =>
+                    setMethodFilter(
+                      e.target.value
+                    )
+                  }
+                  className="rounded-lg border border-slate-700 bg-[#0d1014] px-4 py-2.5 text-sm text-slate-300 outline-none transition focus:border-red-500/50"
+                >
+
+                  <option value="all">
+                    All Methods
+                  </option>
+
+                  <option value="Batch">
+                    Batch
+                  </option>
+
+                  <option value="Streaming">
+                    Streaming
+                  </option>
+
+                </select>
+
+
+                {/* Format Filter */}
+
+                <select
+                  value={formatFilter}
+                  onChange={(e) =>
+                    setFormatFilter(
+                      e.target.value
+                    )
+                  }
+                  className="rounded-lg border border-slate-700 bg-[#0d1014] px-4 py-2.5 text-sm text-slate-300 outline-none transition focus:border-red-500/50"
+                >
+
+                  <option value="all">
+                    All Formats
+                  </option>
+
+                  <option value="JSON">
+                    JSON
+                  </option>
+
+                  <option value="JSONL">
+                    JSONL
+                  </option>
+
+                </select>
+
+
+                {/* Clear Filters */}
+
+                {(search ||
+                  methodFilter !==
+                    "all" ||
+                  formatFilter !==
+                    "all") && (
+                  <button
+                    onClick={
+                      clearFilters
+                    }
+                    className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-400 transition hover:border-red-500/40 hover:text-red-400"
+                  >
+                    Clear
+                  </button>
+                )}
+
               </div>
 
             </div>
 
 
-            {/* Table */}
+            {/* =====================================
+                Table
+            ===================================== */}
 
             <div className="overflow-x-auto">
 
-              <table className="w-full min-w-[1100px] text-left">
+              <table className="w-full min-w-[1200px] text-left">
 
                 <thead className="border-b border-slate-800 bg-[#0d1014]">
 
@@ -181,15 +361,20 @@ const AdminGenerations = () => {
 
                 <tbody className="divide-y divide-slate-800">
 
-                  {generations.map(
-                    (generation, index) => {
+                  {filteredGenerations.map(
+                    (
+                      generation,
+                      index
+                    ) => {
 
                       const user =
                         generation.userId;
 
                       return (
                         <tr
-                          key={generation._id}
+                          key={
+                            generation._id
+                          }
                           className="transition hover:bg-slate-800/30"
                         >
 
@@ -206,9 +391,11 @@ const AdminGenerations = () => {
 
                             <div className="flex items-center gap-3">
 
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-sm font-semibold text-red-400">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-sm font-semibold text-red-400">
                                 {user?.name
-                                  ?.charAt(0)
+                                  ?.charAt(
+                                    0
+                                  )
                                   ?.toUpperCase() ||
                                   "U"}
                               </div>
@@ -267,7 +454,6 @@ const AdminGenerations = () => {
 
                             <span className="rounded-md border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-400">
                               {generation.outputFormat ||
-                                generation.format ||
                                 "-"}
                             </span>
 
@@ -316,11 +502,33 @@ const AdminGenerations = () => {
             </div>
 
 
-            {/* Empty State */}
+            {/* =====================================
+                Empty State
+            ===================================== */}
 
-            {generations.length === 0 && (
-              <div className="p-10 text-center text-sm text-slate-500">
-                No generation activity found.
+            {filteredGenerations.length ===
+              0 && (
+              <div className="p-10 text-center">
+
+                <p className="text-sm text-slate-500">
+                  No generation records found.
+                </p>
+
+                {(search ||
+                  methodFilter !==
+                    "all" ||
+                  formatFilter !==
+                    "all") && (
+                  <button
+                    onClick={
+                      clearFilters
+                    }
+                    className="mt-3 text-xs font-medium text-red-400 hover:text-red-300"
+                  >
+                    Clear filters
+                  </button>
+                )}
+
               </div>
             )}
 
@@ -328,6 +536,7 @@ const AdminGenerations = () => {
         )}
 
       </main>
+
     </div>
   );
 };
